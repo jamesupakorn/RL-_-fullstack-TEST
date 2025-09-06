@@ -1,8 +1,9 @@
 {
   "watch": [
     "Node_api",
+    "Node_api/tables",
     "backend_api/app/api"
   ],
   "ext": "js,ts,json",
-  "exec": "node Node_api/index.js"
+  "exec": "node index.js"
 }

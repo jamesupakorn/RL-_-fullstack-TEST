@@ -21,6 +21,11 @@ function MenuIngredients({ selectedMenu, ingredients, menuDuration, ingredientLo
           </ul>
           <div style={{ marginTop: 12 }}>
             <strong>Preparation time:</strong> {menuDuration} seconds
+            {selectedMenu.price !== undefined && (
+              <div style={{ marginTop: 8 }}>
+                <strong>Price:</strong> {selectedMenu.price} ฿
+              </div>
+            )}
             <div style={{ marginTop: 16 }}>
               <button onClick={onAddToCart}>Add to Cart</button>
             </div>

@@ -12,29 +12,26 @@ function OrderCountdown({ items = [], onFinish, onCancel }) {
   const expandedItems = items.flatMap(item => Array(item.qty).fill(item));
   const [currentIdx, setCurrentIdx] = useState(0);
   const [seconds, setSeconds] = useState(expandedItems[0]?.duration || 0);
+  const [elapsed, setElapsed] = useState(0); // เวลาที่ผ่านไปจริง
   const [key, setKey] = useState(0); // สำหรับรีเซ็ต timer
 
   useEffect(() => {
     if (expandedItems.length === 0) return;
     if (seconds <= 0) {
       if (currentIdx < expandedItems.length - 1) {
-        // ไปเมนูถัดไป
         setCurrentIdx(currentIdx + 1);
         setSeconds(expandedItems[currentIdx + 1].duration || 0);
-        setKey(prev => prev + 1); // รีเซ็ต timer
+        setElapsed(0); // reset elapsed
+        setKey(prev => prev + 1);
       } else {
-        // จบทั้งหมด
         if (onFinish) onFinish();
       }
-      return;
     }
-    // ไม่ต้อง setTimeout แล้ว ใช้ timer จากไลบรารี
   }, [seconds, currentIdx, expandedItems, onFinish]);
 
   const currentItem = expandedItems[currentIdx];
-  // ปุ่ม cancel disable หลัง 3 วินาทีแรกของแต่ละเมนู
-  // ปุ่ม cancel disable หลัง 3 วินาทีแรกของเมนูแรก แล้ว disable ยาวจนจบ
-  const cancelDisabled = currentIdx > 0 || seconds < (expandedItems[0]?.duration || 0) - 3;
+  // ปุ่ม Cancel ทำงานได้เฉพาะ 3 วินาทีแรกของเมนูแรกเท่านั้น
+  const cancelDisabled = currentIdx > 0 || elapsed > 3;
 
   return (
     <div className="cart-popup-overlay">
@@ -52,6 +49,9 @@ function OrderCountdown({ items = [], onFinish, onCancel }) {
             onComplete={() => {
               setSeconds(0);
               return { shouldRepeat: false };
+            }}
+            onUpdate={remainingTime => {
+              setElapsed(expandedItems[0]?.duration - remainingTime);
             }}
           >
             {({ remainingTime }) => (
