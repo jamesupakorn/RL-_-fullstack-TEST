@@ -1,1 +1,10 @@
 node_modules/
+
+# Environment and secrets
+.env
+.env.*
+Node_api/.env
+cafe/.env
+
+# macOS
+.DS_Store
