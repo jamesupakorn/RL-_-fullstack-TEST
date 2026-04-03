@@ -14,6 +14,7 @@ function OrderCountdown({ items = [], onFinish, onCancel }) {
   const [seconds, setSeconds] = useState(expandedItems[0]?.duration || 0);
   const [elapsed, setElapsed] = useState(0); // เวลาที่ผ่านไปจริง
   const [key, setKey] = useState(0); // สำหรับรีเซ็ต timer
+  const [finished, setFinished] = useState(false); // ป้องกัน onFinish ซ้ำ
 
   useEffect(() => {
     if (expandedItems.length === 0) return;
@@ -24,10 +25,13 @@ function OrderCountdown({ items = [], onFinish, onCancel }) {
         setElapsed(0); // reset elapsed
         setKey(prev => prev + 1);
       } else {
-        if (onFinish) onFinish();
+        if (!finished && onFinish) {
+          setFinished(true);
+          onFinish();
+        }
       }
     }
-  }, [seconds, currentIdx, expandedItems, onFinish]);
+  }, [seconds, currentIdx, expandedItems, onFinish, finished]);
 
   const currentItem = expandedItems[currentIdx];
   // ปุ่ม Cancel ทำงานได้เฉพาะ 3 วินาทีแรกของเมนูแรกเท่านั้น

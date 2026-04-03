@@ -6,7 +6,8 @@
   - สามารถขยายเพิ่มการเรียก API อื่น ๆ ได้ง่าย
 */
 import React, { useEffect, useState } from 'react';
-import { getMenus, getMenuIngredients, getMenuIngredientsByNameSubtype } from './api';
+import { useApiCache, deductStockByMenu } from './api';
+import { buildOrderMenus, addToCart, removeFromCart, updateCartQty, getCartTotal, getCartTotalDuration } from './orderUtils';
 import Cart from './Cart';
 import MenuIngredients from './MenuIngredients';
 import OrderCountdown from './OrderCountdown';
@@ -14,6 +15,8 @@ import SubtypeButtons from './SubtypeButtons';
 import '../styles/Main.css';
 
 function MainMenu() {
+  const { getMenus, getMenuIngredients, getMenuIngredientsByNameSubtype, getMenuSubtypes } = useApiCache();
+  // import deductStockByMenu
   const [menus, setMenus] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -42,8 +45,7 @@ function MainMenu() {
       .then((data) => setMenus(data))
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
-    fetch('http://localhost:4000/api/menu_subtype')
-      .then(res => res.json())
+    getMenuSubtypes()
       .then(data => setAllSubtypes(data));
   }, []);
 
@@ -90,43 +92,35 @@ function MainMenu() {
       console.log('Add to cart failed: selectedMenuObj incomplete', selectedMenuObj);
       return;
     }
-    // หา menuObj จาก menus โดยใช้ menu_name และ menu_subtype
-    const menuObj = menus.find(m => m.menu_name === selectedMenuObj.menu_name && m.menu_subtype === selectedMenuObj.subtype_id);
-  const price = menuObj ? menuObj.price : (selectedMenuObj.price || 0);
-    const menu_id = menuObj ? menuObj.menu_id : (selectedMenuObj.menu_id || `${selectedMenuObj.menu_name}_${selectedMenuObj.subtype_id}`);
-    const idx = cartItems.findIndex(item => item.menu_id === menu_id);
-    const duration = menuDuration || (menuObj ? menuObj.duration : 0);
-    if (idx >= 0) {
-      const newCart = [...cartItems];
-      newCart[idx].qty += 1;
-      newCart[idx].duration = duration;
-      setCartItems(newCart);
-    } else {
-      setCartItems([...cartItems, {
-        menu_id: menu_id,
-        name: selectedMenuObj.menu_name,
-        price: price,
-        qty: 1,
-        duration: duration
-      }]);
+    // หา menuObj จาก menus โดยใช้ menu_name และ menu_subtype (menu_id จริงจาก db)
+    const menuObj = menus.find(m => {
+      if (m.menu_name !== selectedMenuObj.menu_name) return false;
+      if (Array.isArray(m.menu_subtype)) {
+        return m.menu_subtype.includes(selectedMenuObj.subtype_id);
+      } else {
+        return m.menu_subtype === selectedMenuObj.subtype_id;
+      }
+    });
+    if (!menuObj) {
+      console.log('Menu object not found for', selectedMenuObj.menu_name, selectedMenuObj.subtype_id);
+      return;
     }
-    console.log('Add to cart:', menu_id, selectedMenuObj.menu_name, 'price:', price);
+    const duration = menuDuration || menuObj.duration;
+    setCartItems(prev => addToCart(prev, menuObj, duration));
+    console.log('Add to cart:', menuObj.menu_id, selectedMenuObj.menu_name, 'price:', menuObj.price);
   };
 
   const handleRemoveFromCart = (idx) => {
-    const newCart = [...cartItems];
-    newCart.splice(idx, 1);
-    setCartItems(newCart);
+  setCartItems(prev => removeFromCart(prev, idx));
   };
 
   const handleUpdateQty = (idx, qty) => {
-    if (qty < 1) return;
-    const newCart = [...cartItems];
-    newCart[idx].qty = qty;
-    setCartItems(newCart);
+  setCartItems(prev => updateCartQty(prev, idx, qty));
   };
 
   const cartCount = cartItems.reduce((sum, item) => sum + item.qty, 0);
+  const cartTotal = getCartTotal(cartItems);
+  const cartTotalDuration = getCartTotalDuration(cartItems);
 
   return (
     <div className="App">
@@ -172,6 +166,8 @@ function MainMenu() {
               items={cartItems}
               onRemove={handleRemoveFromCart}
               onUpdateQty={handleUpdateQty}
+              cartTotal={cartTotal}
+              cartTotalDuration={cartTotalDuration}
               onConfirmOrder={() => {
                 setShowCart(false);
                 setShowCountdown(true);
@@ -184,7 +180,14 @@ function MainMenu() {
       {showCountdown && (
         <OrderCountdown
           items={cartItems}
-          onFinish={() => {
+          onFinish={async () => {
+            // หัก stock หลัง countdown จบ
+            try {
+              const orderMenus = buildOrderMenus(cartItems);
+              await deductStockByMenu(orderMenus);
+            } catch (err) {
+              console.error('Error deducting stock:', err);
+            }
             setShowCountdown(false);
             setCartItems([]);
           }}

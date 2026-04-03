@@ -1,6 +1,7 @@
 // Cart.js - React component สำหรับตะกร้าสินค้า
 // อธิบายโค้ดเป็นภาษาไทยในแต่ละส่วน
 import React from 'react';
+// import { deductStockByMenu } from './api';
 
 /**
  * Cart component สำหรับแสดงรายการสินค้าในตะกร้า
@@ -13,26 +14,50 @@ import React from 'react';
  * @param {Function} onRemove - ฟังก์ชันสำหรับลบสินค้าออกจากตะกร้า
  * @param {Function} onUpdateQty - ฟังก์ชันสำหรับแก้ไขจำนวนสินค้า
  */
-function Cart({ items, onRemove, onUpdateQty, onConfirmOrder }) {
+function Cart({ items, onRemove, onUpdateQty, onConfirmOrder, cancelDisabled, cartTotal, cartTotalDuration }) {
   // ถ้าไม่มีสินค้าในตะกร้า
   if (!items || items.length === 0) {
     return <div className="cart-empty">Cart is empty</div>; // ตะกร้าว่าง
   }
 
-  // คำนวณราคารวม
-  const total = items.reduce((sum, item) => sum + (item.price * item.qty), 0);
-  // คำนวณเวลารวมที่ใช้ในการเตรียม (สมมติ field ชื่อ duration ในแต่ละ item)
-  const totalDuration = items.reduce((sum, item) => sum + ((item.duration || 0) * item.qty), 0);
+  // รับค่าราคารวมและเวลารวมจาก props (คำนวณด้วย orderUtils.js)
+  const total = cartTotal;
+  const totalDuration = cartTotalDuration;
 
+  // ฟังก์ชันสำหรับ toggle checkbox หลอด/ฝา
+  const handleCheckboxChange = (idx, field) => {
+    const newItems = [...items];
+    newItems[idx][field] = !newItems[idx][field];
+    if (onUpdateQty) onUpdateQty(idx, newItems[idx].qty, newItems[idx].straw, newItems[idx].lid);
+  };
+
+  // ฟังก์ชันสำหรับยืนยัน order ส่ง event ไป parent เท่านั้น
+  const handleConfirmOrder = () => {
+    if (onConfirmOrder) onConfirmOrder(items);
+  };
   return (
     <div className="cart-container">
-      <h2>Shopping Cart</h2> {/* หัวข้อ */}
+      <h2>Shopping Cart</h2> {/* Title */}
       <ul>
         {items.map((item, idx) => (
           <li key={idx}>
             {item.name} x {item.qty} = {item.price * item.qty} ฿
             <button onClick={() => onUpdateQty(idx, item.qty - 1)} style={{ marginLeft: 8 }}>-</button>
             <button onClick={() => onUpdateQty(idx, item.qty + 1)} style={{ marginLeft: 4 }}>+</button>
+            <label style={{ marginLeft: 12 }}>
+              <input
+                type="checkbox"
+                checked={!!item.straw}
+                onChange={() => handleCheckboxChange(idx, 'straw')}
+              /> รับหลอด
+            </label>
+            <label style={{ marginLeft: 8 }}>
+              <input
+                type="checkbox"
+                checked={!!item.lid}
+                onChange={() => handleCheckboxChange(idx, 'lid')}
+              /> รับฝา
+            </label>
             <button onClick={() => onRemove(idx)} style={{ marginLeft: 8 }}>Remove</button>
           </li>
         ))}
@@ -44,9 +69,9 @@ function Cart({ items, onRemove, onUpdateQty, onConfirmOrder }) {
       <button
         className="cart-confirm-button"
         style={{ marginTop: 16, background: '#27ae60', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px', fontSize: '1rem', cursor: 'pointer' }}
-        onClick={() => onConfirmOrder && onConfirmOrder(items)}
+        onClick={handleConfirmOrder}
       >
-        ยืนยัน Order
+        Confirm Order
       </button>
     </div>
   );

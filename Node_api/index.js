@@ -10,12 +10,16 @@ import cors from 'cors';
 import { getMenus } from './tables/menu.js';
 import { getMenuIngredients, getMenuIngredientsByNameSubtype } from './tables/menu_ingredient.js';
 import { getMenuSubtypes } from './tables/menu_subtype.js';
+import ingredientRouter from './tables/ingredient.js';
 
 const app = express();
 const port = process.env.PORT || 4000;
 
 app.use(cors());
 app.use(express.json());
+
+app.use('/api/ingredient', ingredientRouter);
+
 // GET /api/menu_ingredient_by_name_subtype - ดึงวัตถุดิบของเมนูด้วย menu_name และ subtype_id
 app.get('/api/menu_ingredient_by_name_subtype', async (req, res) => {
   const { menu_name, subtype_id, ingredient_type } = req.query;
