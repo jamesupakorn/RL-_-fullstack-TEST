@@ -42,6 +42,11 @@ function Cart({ items, onRemove, onUpdateQty, onConfirmOrder, cancelDisabled, ca
         {items.map((item, idx) => (
           <li key={idx}>
             {item.name} x {item.qty} = {item.price * item.qty} ฿
+            {item.addons && item.addons.length > 0 && (
+              <div style={{ marginTop: 4, color: '#444', fontSize: 14 }}>
+                Add-on: {item.addons.map(addon => addon.name).join(', ')}
+              </div>
+            )}
             <button onClick={() => onUpdateQty(idx, item.qty - 1)} style={{ marginLeft: 8 }}>-</button>
             <button onClick={() => onUpdateQty(idx, item.qty + 1)} style={{ marginLeft: 4 }}>+</button>
             <label style={{ marginLeft: 12 }}>

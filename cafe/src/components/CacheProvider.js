@@ -9,6 +9,7 @@ export function CacheProvider({ children }) {
     menuIngredients: {},
     menuIngredientsByNameSubtype: {},
     menuSubtypes: null,
+    ingredients: null,
   });
 
   // เคลียร์ cache ทุกครั้งที่ mount (refresh)
@@ -18,6 +19,7 @@ export function CacheProvider({ children }) {
       menuIngredients: {},
       menuIngredientsByNameSubtype: {},
       menuSubtypes: null,
+      ingredients: null,
     };
   }, []);
 

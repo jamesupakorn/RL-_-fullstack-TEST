@@ -15,21 +15,29 @@ export function getCartTotalDuration(cartItems) {
 /**
  * เพิ่มสินค้าเข้า cart
  */
-export function addToCart(cartItems, menuObj, duration) {
+export function addToCart(cartItems, menuObj, duration, finalPrice, addons = []) {
   const menu_id = menuObj.menu_id;
-  const idx = cartItems.findIndex(item => item.menu_id === menu_id);
+  const addonSignature = (addons || [])
+    .map((item) => `${item.ingredient_id}:${item.amount || 1}`)
+    .sort()
+    .join('|');
+  const idx = cartItems.findIndex(item => item.menu_id === menu_id && (item.addonSignature || '') === addonSignature);
   if (idx >= 0) {
     const newCart = [...cartItems];
     newCart[idx].qty += 1;
     newCart[idx].duration = duration;
+    newCart[idx].price = finalPrice;
+    newCart[idx].addons = addons;
     return newCart;
   } else {
     return [...cartItems, {
       menu_id: menu_id,
-      name: menuObj.menu_name,
-      price: menuObj.price,
+      name: menuObj.menu_name_th || menuObj.menu_name_en,
+      price: finalPrice,
       qty: 1,
-      duration: duration
+      duration: duration,
+      addons,
+      addonSignature,
     }];
   }
 }
@@ -63,12 +71,22 @@ export function updateCartQty(cartItems, idx, qty) {
  */
 export function buildOrderMenus(cartItems) {
   const orderMenus = [...cartItems];
+  const addonMap = new Map();
   let strawQty = 0;
   let lidQty = 0;
   cartItems.forEach(item => {
     if (item.straw) strawQty += item.qty;
     if (item.lid) lidQty += item.qty;
+    (item.addons || []).forEach((addon) => {
+      const key = addon.ingredient_id;
+      const amount = Number(addon.amount) || 1;
+      if (!key) return;
+      const prev = addonMap.get(key) || { ingredient_id: key, qty: 0, name: addon.name };
+      prev.qty += amount * item.qty;
+      addonMap.set(key, prev);
+    });
   });
+  addonMap.forEach((value) => orderMenus.push(value));
   if (strawQty > 0) {
     orderMenus.push({ menu_id: 'IGD2001', name: 'Drinking Straw', qty: strawQty });
   }

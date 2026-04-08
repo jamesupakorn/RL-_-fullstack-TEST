@@ -13,7 +13,7 @@ import pool from '../main.js';
  */
 export async function getMenus(queryParams) {
   // กำหนดฟิลด์ที่สามารถ filter ได้
-  const filterFields = ['menu_id', 'menu_name', 'menu_type', 'has_milk', 'price', 'duration'];
+  const filterFields = ['menu_id', 'menu_name_en', 'menu_name_th', 'menu_type', 'has_milk', 'price', 'duration'];
   const filters = [];
   const values = [];
   let idx = 1;
@@ -51,7 +51,8 @@ export async function getMenus(queryParams) {
       if (!grouped[prefix]) {
         grouped[prefix] = {
           menu_id: row.menu_id, // ใช้ menu_id ที่น้อยสุดใน group
-          menu_name: row.menu_name,
+          menu_name_th: row.menu_name_th,
+          menu_name_en: row.menu_name_en,
           menu_type: row.menu_type,
           menu_subtype: [row.menu_subtype],
           has_milk: row.has_milk,
@@ -66,7 +67,8 @@ export async function getMenus(queryParams) {
         // อัปเดต menu_id ให้เป็นตัวที่น้อยสุดใน group
         if (row.menu_id < grouped[prefix].menu_id) {
           grouped[prefix].menu_id = row.menu_id;
-          grouped[prefix].menu_name = row.menu_name;
+          grouped[prefix].menu_name_th = row.menu_name_th;
+          grouped[prefix].menu_name_en = row.menu_name_en;
           grouped[prefix].menu_type = row.menu_type;
           grouped[prefix].has_milk = row.has_milk;
           grouped[prefix].price = row.price;

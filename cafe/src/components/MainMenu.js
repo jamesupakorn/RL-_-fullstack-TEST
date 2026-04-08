@@ -5,17 +5,27 @@
   - มีการจัดการสถานะโหลดและ error
   - สามารถขยายเพิ่มการเรียก API อื่น ๆ ได้ง่าย
 */
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useApiCache, deductStockByMenu } from './api';
 import { buildOrderMenus, addToCart, removeFromCart, updateCartQty, getCartTotal, getCartTotalDuration } from './orderUtils';
 import Cart from './Cart';
 import MenuIngredients from './MenuIngredients';
 import OrderCountdown from './OrderCountdown';
+import AdminPanel from './AdminPanel';
 import SubtypeButtons from './SubtypeButtons';
+import { URL } from './config';
 import '../styles/Main.css';
 
+const ADMIN_TOKEN_KEY = 'adminKeyHash';
+const LOW_STOCK_THRESHOLD = 10;
+const sha256Hex = async (value) => {
+  const data = new TextEncoder().encode(value);
+  const digest = await window.crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('');
+};
+
 function MainMenu() {
-  const { getMenus, getMenuIngredients, getMenuIngredientsByNameSubtype, getMenuSubtypes } = useApiCache();
+  const { getMenus, getMenuIngredientsByNameSubtype, getMenuSubtypes, invalidateCache } = useApiCache();
   // import deductStockByMenu
   const [menus, setMenus] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -35,23 +45,100 @@ function MainMenu() {
   const [cartItems, setCartItems] = useState([]);
   const [showCart, setShowCart] = useState(false);
   const [showCountdown, setShowCountdown] = useState(false);
+  const [showAdmin, setShowAdmin] = useState(false);
+  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(() => Boolean(sessionStorage.getItem(ADMIN_TOKEN_KEY)));
+  const [adminAuthError, setAdminAuthError] = useState(null);
+  const [showAdminLogin, setShowAdminLogin] = useState(false);
+  const [adminKeyInput, setAdminKeyInput] = useState('');
+  const [lowStockCount, setLowStockCount] = useState(0);
+  const [menuAvailability, setMenuAvailability] = useState({});
+  const [ingredientStockList, setIngredientStockList] = useState([]);
 
   // subtype ทั้งหมด
   const [allSubtypes, setAllSubtypes] = useState([]);
 
+  const availabilityKey = useCallback((menuNameEn, subtypeId) => `${menuNameEn}__${subtypeId}`, []);
+
+  const isSubtypeAvailable = useCallback((menuNameEn, subtypeId) => {
+    const status = menuAvailability[availabilityKey(menuNameEn, subtypeId)];
+    return status !== false;
+  }, [menuAvailability, availabilityKey]);
+
+  const isMenuAvailable = useCallback((menu) => {
+    const subtypes = Array.isArray(menu.menu_subtype) ? menu.menu_subtype : [menu.menu_subtype];
+    return subtypes.some((st) => isSubtypeAvailable(menu.menu_name_en, st));
+  }, [isSubtypeAvailable]);
+
+  const refreshMenuAvailability = useCallback(async (menusSource = menus, forceRefresh = false) => {
+    if (!menusSource || menusSource.length === 0) {
+      setMenuAvailability({});
+      return;
+    }
+
+    const checks = menusSource.flatMap((menu) => {
+      const subtypes = Array.isArray(menu.menu_subtype) ? menu.menu_subtype : [menu.menu_subtype];
+      return subtypes.map(async (subtypeId) => {
+        try {
+          const data = await getMenuIngredientsByNameSubtype(menu.menu_name_en, subtypeId, forceRefresh);
+          const menuIngredients = data?.ingredients || [];
+          const available = menuIngredients.length === 0
+            ? true
+            : menuIngredients.every((ing) => Number(ing.stock_qty) >= Number(ing.amount));
+          return [availabilityKey(menu.menu_name_en, subtypeId), available];
+        } catch (_) {
+          return [availabilityKey(menu.menu_name_en, subtypeId), true];
+        }
+      });
+    });
+
+    const entries = await Promise.all(checks);
+    setMenuAvailability(Object.fromEntries(entries));
+  }, [menus, getMenuIngredientsByNameSubtype, availabilityKey]);
+
+  const loadLowStockCount = useCallback(async () => {
+    try {
+      const response = await fetch(URL + 'api/ingredient');
+      if (!response.ok) return;
+      const ingredientsData = await response.json();
+      setIngredientStockList(ingredientsData || []);
+      const lowCount = (ingredientsData || []).filter((item) => Number(item.stock_qty) <= LOW_STOCK_THRESHOLD).length;
+      setLowStockCount(lowCount);
+    } catch (_) {
+      // ignore badge errors to avoid blocking the main UI
+    }
+  }, []);
+
+  const refreshStockDrivenUI = useCallback(() => {
+    invalidateCache(['ingredients', 'menuIngredients', 'menuIngredientsByNameSubtype']);
+    loadLowStockCount();
+    refreshMenuAvailability(menus, true);
+  }, [invalidateCache, loadLowStockCount, refreshMenuAvailability, menus]);
+
   useEffect(() => {
     setLoading(true);
     getMenus()
-      .then((data) => setMenus(data))
+      .then((data) => {
+        setMenus(data);
+        refreshMenuAvailability(data);
+      })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
     getMenuSubtypes()
       .then(data => setAllSubtypes(data));
+    // รันครั้งเดียวตอน mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    loadLowStockCount();
+    const timer = setInterval(loadLowStockCount, 60000);
+    return () => clearInterval(timer);
+  }, [loadLowStockCount]);
 
   // เมื่อคลิกเมนูหลัก
   const handleMenuClick = (menu) => {
-    setSelectedMenuName(menu.menu_name);
+    if (!isMenuAvailable(menu)) return;
+    setSelectedMenuName(menu.menu_name_en);
     setSelectedSubtypes(menu.menu_subtype);
     setSelectedSubtype(null); // ยังไม่เลือก subtype
     setSelectedMenuObj(null);
@@ -64,6 +151,7 @@ function MainMenu() {
   // เมื่อคลิก subtype
     const handleSubtypeClick = async (subtype) => {
       const subtypeId = subtype.subtype_id || subtype;
+        if (!isSubtypeAvailable(selectedMenuName, subtypeId)) return;
       console.log('handleSubtypeClick called:', { selectedMenuName, subtypeId });
       setSelectedSubtype(subtypeId);
       setIngredientLoading(true);
@@ -76,7 +164,7 @@ function MainMenu() {
         console.log('API response:', data); // log ทั้ง object
         setIngredients(data.ingredients || []);
         setMenuDuration(data.duration || null);
-        setSelectedMenuObj({ menu_name: selectedMenuName, subtype_id: subtypeId, price: data.price });
+        setSelectedMenuObj({ menu_name_en: selectedMenuName, menu_name_th: data.menu_name_th, subtype_id: subtypeId, price: data.price });
         console.log('ingredients:', data.ingredients, 'price:', data.price);
       } catch (err) {
         setIngredientError(err.message);
@@ -87,14 +175,15 @@ function MainMenu() {
     };
 
   // เพิ่มสินค้าลงตะกร้า
-  const handleAddToCart = () => {
-    if (!selectedMenuObj || !selectedMenuObj.menu_name || !selectedMenuObj.subtype_id) {
+  const handleAddToCart = (selectedAddons = []) => {
+    if (!isSubtypeAvailable(selectedMenuName, selectedSubtype)) return;
+    if (!selectedMenuObj || !selectedMenuObj.menu_name_en || !selectedMenuObj.subtype_id) {
       console.log('Add to cart failed: selectedMenuObj incomplete', selectedMenuObj);
       return;
     }
     // หา menuObj จาก menus โดยใช้ menu_name และ menu_subtype (menu_id จริงจาก db)
     const menuObj = menus.find(m => {
-      if (m.menu_name !== selectedMenuObj.menu_name) return false;
+      if (m.menu_name_en !== selectedMenuObj.menu_name_en) return false;
       if (Array.isArray(m.menu_subtype)) {
         return m.menu_subtype.includes(selectedMenuObj.subtype_id);
       } else {
@@ -102,12 +191,15 @@ function MainMenu() {
       }
     });
     if (!menuObj) {
-      console.log('Menu object not found for', selectedMenuObj.menu_name, selectedMenuObj.subtype_id);
+      console.log('Menu object not found for', selectedMenuObj.menu_name_en, selectedMenuObj.subtype_id);
       return;
     }
-    const duration = menuDuration || menuObj.duration;
-    setCartItems(prev => addToCart(prev, menuObj, duration));
-    console.log('Add to cart:', menuObj.menu_id, selectedMenuObj.menu_name, 'price:', menuObj.price);
+    const extraDuration = selectedAddons.reduce((sum, addon) => sum + (Number(addon.duration) || 0) * (Number(addon.amount) || 1), 0);
+    const extraPrice = selectedAddons.reduce((sum, addon) => sum + (Number(addon.price) || 0) * (Number(addon.amount) || 1), 0);
+    const duration = (menuDuration || menuObj.duration || 0) + extraDuration;
+    const finalPrice = (Number(menuObj.price) || 0) + extraPrice;
+    setCartItems(prev => addToCart(prev, menuObj, duration, finalPrice, selectedAddons));
+    console.log('Add to cart:', menuObj.menu_id, selectedMenuObj.menu_name_th || selectedMenuObj.menu_name_en, 'price:', menuObj.price);
   };
 
   const handleRemoveFromCart = (idx) => {
@@ -121,12 +213,89 @@ function MainMenu() {
   const cartCount = cartItems.reduce((sum, item) => sum + item.qty, 0);
   const cartTotal = getCartTotal(cartItems);
   const cartTotalDuration = getCartTotalDuration(cartItems);
+  const addonOptions = ingredientStockList
+    .filter((item) => item.ingredient_type === 'T01' && Number(item.stock_qty) > 0)
+    .map((item) => ({
+      ingredient_id: item.ingredient_id,
+      name: item.ingredient_name_th || item.ingredient_name_en,
+      unit: item.unit_th || item.unit_en,
+      stock_qty: Number(item.stock_qty) || 0,
+      duration: Number(item.duration) || 0,
+      price: Number(item.addon_price) || 0,
+      amount: 1,
+    }));
+
+  const handleAdminClick = async () => {
+    if (isAdminAuthenticated) {
+      setShowAdmin(true);
+      return;
+    }
+
+    setAdminAuthError(null);
+    setShowAdminLogin(true);
+  };
+
+  const handleAdminLogin = async (e) => {
+    if (e) e.preventDefault();
+    const key = adminKeyInput.trim();
+    if (!key) {
+      setAdminAuthError('กรุณาใส่รหัส Admin');
+      return;
+    }
+
+    try {
+      const adminKeyHash = await sha256Hex(key);
+      const response = await fetch(URL + 'api/admin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ adminKeyHash }),
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload.error || 'Admin login failed');
+      }
+      sessionStorage.setItem(ADMIN_TOKEN_KEY, adminKeyHash);
+      setIsAdminAuthenticated(true);
+      setAdminAuthError(null);
+      setAdminKeyInput('');
+      setShowAdminLogin(false);
+      setShowAdmin(true);
+    } catch (err) {
+      setAdminAuthError(err.message || 'Admin login failed');
+    }
+  };
 
   return (
     <div className="App">
       <h1>Cafe Menu</h1>
-      <button className="cart-button" onClick={() => setShowCart(true)}>
+      <button className="cart-button" style={{ right: 24 }} onClick={() => setShowCart(true)}>
         Cart ({cartCount})
+      </button>
+      <button className="cart-button" style={{ right: 160 }} onClick={handleAdminClick}>
+        Admin
+        {lowStockCount > 0 && (
+          <span
+            style={{
+              position: 'absolute',
+              top: -8,
+              right: -6,
+              minWidth: 20,
+              height: 20,
+              borderRadius: '50%',
+              background: '#e74c3c',
+              color: '#fff',
+              fontSize: 12,
+              fontWeight: 700,
+              lineHeight: '20px',
+              padding: '0 4px',
+              boxSizing: 'border-box',
+              textAlign: 'center',
+              pointerEvents: 'none',
+            }}
+          >
+            {lowStockCount}
+          </span>
+        )}
       </button>
       {loading && (
         <div className="spinner-container">
@@ -136,7 +305,15 @@ function MainMenu() {
       )}
       {error && <div style={{ color: 'red' }}>Error: {error}</div>}
       {menus.map((menu) => (
-        <button key={menu.menu_id} style={{ margin: 8 }} onClick={() => handleMenuClick(menu)}>{menu.menu_name}</button>
+        <button
+          key={menu.menu_id}
+          style={{ margin: 8, ...(isMenuAvailable(menu) ? {} : { opacity: 0.45, cursor: 'not-allowed' }) }}
+          onClick={() => handleMenuClick(menu)}
+          disabled={!isMenuAvailable(menu)}
+          title={!isMenuAvailable(menu) ? 'วัตถุดิบของเมนูนี้หมด/ไม่พอ' : ''}
+        >
+          {menu.menu_name_th || menu.menu_name_en}
+        </button>
       ))}
       {/* ปุ่ม subtype เฉพาะที่เมนูนั้นมี */}
       {selectedMenuName && selectedSubtypes && (
@@ -145,6 +322,7 @@ function MainMenu() {
             subtypes={allSubtypes.filter(st => selectedSubtypes.includes(st.subtype_id))}
             onSelect={handleSubtypeClick}
             selectedSubtype={selectedSubtype}
+            isSubtypeDisabled={(st) => !isSubtypeAvailable(selectedMenuName, st.subtype_id)}
           />
         </div>
       )}
@@ -153,10 +331,12 @@ function MainMenu() {
         <MenuIngredients
           selectedMenu={selectedMenuObj}
           ingredients={ingredients}
+          addonOptions={addonOptions}
           menuDuration={menuDuration}
           ingredientLoading={ingredientLoading}
           ingredientError={ingredientError}
           onAddToCart={handleAddToCart}
+          canAddToCart={selectedSubtype ? isSubtypeAvailable(selectedMenuName, selectedSubtype) : true}
         />
       )}
       {showCart && (
@@ -185,6 +365,7 @@ function MainMenu() {
             try {
               const orderMenus = buildOrderMenus(cartItems);
               await deductStockByMenu(orderMenus);
+              refreshStockDrivenUI();
             } catch (err) {
               console.error('Error deducting stock:', err);
             }
@@ -193,6 +374,37 @@ function MainMenu() {
           }}
           onCancel={() => setShowCountdown(false)}
         />
+      )}
+      {showAdmin && (
+        <AdminPanel
+          onClose={() => setShowAdmin(false)}
+          onDataChange={refreshStockDrivenUI}
+          onLogout={() => {
+            sessionStorage.removeItem(ADMIN_TOKEN_KEY);
+            setIsAdminAuthenticated(false);
+            setShowAdmin(false);
+            refreshStockDrivenUI();
+          }}
+        />
+      )}
+      {showAdminLogin && (
+        <div className="cart-popup-overlay" onClick={() => { setShowAdminLogin(false); setAdminAuthError(null); }}>
+          <form className="cart-popup" onSubmit={handleAdminLogin} onClick={e => e.stopPropagation()}>
+            <h3>เข้าสู่ระบบแอดมิน</h3>
+            <input
+              type="password"
+              value={adminKeyInput}
+              onChange={(e) => setAdminKeyInput(e.target.value)}
+              placeholder="กรอกรหัส Admin"
+              style={{ width: '100%', padding: 10, marginBottom: 12, fontSize: 16 }}
+            />
+            {adminAuthError && <div style={{ color: 'red', marginBottom: 8 }}>{adminAuthError}</div>}
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button type="submit" className="cart-close-button">เข้าสู่ระบบ</button>
+              <button type="button" className="cart-close-button" onClick={() => { setShowAdminLogin(false); setAdminAuthError(null); }}>ยกเลิก</button>
+            </div>
+          </form>
+        </div>
       )}
     </div>
   );

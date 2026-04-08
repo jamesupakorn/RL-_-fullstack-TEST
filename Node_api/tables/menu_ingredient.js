@@ -3,7 +3,7 @@ import pool from '../main.js';
 // ดึงวัตถุดิบของเมนู (รองรับ ingredient_type)
 export async function getMenuIngredients(menu_id, ingredient_type) {
   let query = `
-    SELECT i.ingredient_id, i.ingredient_name, i.unit, mi.amount, i.duration
+    SELECT i.ingredient_id, i.ingredient_name_th, i.ingredient_name_en, i.unit_th, i.unit_en, i.stock_qty, mi.amount, i.duration
     FROM menu_ingredient mi
     JOIN ingredient i ON mi.ingredient_id = i.ingredient_id
     WHERE mi.menu_id = $1
@@ -24,7 +24,7 @@ export async function getMenuIngredients(menu_id, ingredient_type) {
 export async function getMenuIngredientsByNameSubtype(menu_name, subtype_id, ingredient_type) {
   // หา menu_id จาก menu_name และ subtype_id
   const menuRes = await pool.query(
-    'SELECT menu_id, price FROM menu WHERE menu_name = $1 AND menu_subtype = $2 LIMIT 1',
+    'SELECT menu_id, price FROM menu WHERE menu_name_en = $1 AND menu_subtype = $2 LIMIT 1',
     [menu_name, subtype_id]
   );
   const menu_id = menuRes.rows[0]?.menu_id;
