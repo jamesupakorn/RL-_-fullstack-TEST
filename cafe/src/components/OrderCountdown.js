@@ -39,15 +39,15 @@ function OrderCountdown({ items = [], onFinish, onCancel }) {
 
   return (
     <div className="cart-popup-overlay">
-      <div className="cart-popup" style={{ textAlign: 'center' }}>
-        <h2>Preparing: {currentItem?.name || 'Order'}</h2>
-        <div style={{ margin: '24px 0' }}>
+      <div className="cart-popup countdown-popup">
+        <h2 className="countdown-title">Preparing: {currentItem?.name || 'Order'}</h2>
+        <div className="countdown-timer-wrap">
           <CountdownCircleTimer
             key={key}
             isPlaying
             duration={seconds}
-            colors={["#27ae60", "#f7b731", "#e74c3c"]}
-            trailColor="#eee"
+            colors={["#5b3a23", "#8b5e3c", "#b8865f"]}
+            trailColor="#e9dacb"
             size={120}
             strokeWidth={10}
             onComplete={() => {
@@ -59,16 +59,15 @@ function OrderCountdown({ items = [], onFinish, onCancel }) {
             }}
           >
             {({ remainingTime }) => (
-              <span style={{ fontSize: '2rem', color: '#333' }}>{remainingTime} s</span>
+              <span className="countdown-time">{remainingTime} s</span>
             )}
           </CountdownCircleTimer>
         </div>
-        <div style={{ marginBottom: 8, color: '#888' }}>
+        <div className="countdown-step">
           {currentIdx + 1} / {expandedItems.length}
         </div>
         <button
           className="cart-close-button"
-          style={{ marginTop: 16 }}
           onClick={onCancel}
           disabled={cancelDisabled}
         >Cancel</button>

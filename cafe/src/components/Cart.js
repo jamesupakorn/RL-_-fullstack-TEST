@@ -14,7 +14,7 @@ import React from 'react';
  * @param {Function} onRemove - ฟังก์ชันสำหรับลบสินค้าออกจากตะกร้า
  * @param {Function} onUpdateQty - ฟังก์ชันสำหรับแก้ไขจำนวนสินค้า
  */
-function Cart({ items, onRemove, onUpdateQty, onConfirmOrder, cancelDisabled, cartTotal, cartTotalDuration }) {
+function Cart({ items, onRemove, onUpdateQty, onConfirmOrder, onClose, cancelDisabled, cartTotal, cartTotalDuration }) {
   // ถ้าไม่มีสินค้าในตะกร้า
   if (!items || items.length === 0) {
     return <div className="cart-empty">Cart is empty</div>; // ตะกร้าว่าง
@@ -35,49 +35,100 @@ function Cart({ items, onRemove, onUpdateQty, onConfirmOrder, cancelDisabled, ca
   const handleConfirmOrder = () => {
     if (onConfirmOrder) onConfirmOrder(items);
   };
+
   return (
     <div className="cart-container">
       <h2>Shopping Cart</h2> {/* Title */}
-      <ul>
+      <ul className="cart-list">
         {items.map((item, idx) => (
-          <li key={idx}>
-            {item.name} x {item.qty} = {item.price * item.qty} ฿
+          <li key={idx} className="cart-item">
+            <div className="cart-item-main">
+              <span className="cart-item-name">{item.name}</span>
+              <span className="cart-item-meta">x {item.qty} = {item.price * item.qty} ฿</span>
+            </div>
             {item.addons && item.addons.length > 0 && (
-              <div style={{ marginTop: 4, color: '#444', fontSize: 14 }}>
+              <div className="cart-addon-line">
                 Add-on: {item.addons.map(addon => addon.name).join(', ')}
               </div>
             )}
-            <button onClick={() => onUpdateQty(idx, item.qty - 1)} style={{ marginLeft: 8 }}>-</button>
-            <button onClick={() => onUpdateQty(idx, item.qty + 1)} style={{ marginLeft: 4 }}>+</button>
-            <label style={{ marginLeft: 12 }}>
-              <input
-                type="checkbox"
-                checked={!!item.straw}
-                onChange={() => handleCheckboxChange(idx, 'straw')}
-              /> รับหลอด
-            </label>
-            <label style={{ marginLeft: 8 }}>
-              <input
-                type="checkbox"
-                checked={!!item.lid}
-                onChange={() => handleCheckboxChange(idx, 'lid')}
-              /> รับฝา
-            </label>
-            <button onClick={() => onRemove(idx)} style={{ marginLeft: 8 }}>Remove</button>
+
+            <div className="cart-item-controls">
+              <div className="qty-controls">
+                <button
+                  className={`qty-btn ${item.qty <= 1 ? 'qty-btn--remove' : ''}`}
+                  onClick={() => {
+                    if (item.qty <= 1) {
+                      onRemove(idx);
+                      return;
+                    }
+                    onUpdateQty(idx, item.qty - 1);
+                  }}
+                  aria-label={item.qty <= 1 ? `Remove ${item.name}` : `Decrease ${item.name}`}
+                  title={item.qty <= 1 ? 'Remove item' : 'Decrease quantity'}
+                >
+                  {item.qty <= 1 ? (
+                    <svg className="qty-trash-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                      <path d="M4 7h16" />
+                      <path d="M9 7V5h6v2" />
+                      <path d="M7 7l1 12h8l1-12" />
+                      <path d="M10 11v5" />
+                      <path d="M14 11v5" />
+                    </svg>
+                  ) : '-'}
+                </button>
+                <span className="qty-value">{item.qty}</span>
+                <button
+                  className="qty-btn"
+                  onClick={() => onUpdateQty(idx, item.qty + 1)}
+                  aria-label={`Increase ${item.name}`}
+                >
+                  +
+                </button>
+              </div>
+
+              <div className="option-controls">
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={!!item.straw}
+                    onChange={() => handleCheckboxChange(idx, 'straw')}
+                  /> รับหลอด
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={!!item.lid}
+                    onChange={() => handleCheckboxChange(idx, 'lid')}
+                  /> รับฝา
+                </label>
+              </div>
+            </div>
           </li>
         ))}
       </ul>
-      <div className="cart-total">
-        <strong>Total:</strong> {total} ฿<br />
-        <strong>Preparation time:</strong> {totalDuration} seconds
+
+      <div className="cart-footer">
+        <div className="cart-total">
+          <div className="cart-total-line">
+            <span>Total</span>
+            <strong>{total} ฿</strong>
+          </div>
+          <div className="cart-total-line">
+            <span>Preparation time</span>
+            <strong>{totalDuration} seconds</strong>
+          </div>
+        </div>
+
+        <div className="cart-action-stack">
+          <button className="cart-close-button" onClick={onClose}>Close</button>
+          <button
+            className="cart-confirm-button"
+            onClick={handleConfirmOrder}
+          >
+            Confirm Order
+          </button>
+        </div>
       </div>
-      <button
-        className="cart-confirm-button"
-        style={{ marginTop: 16, background: '#27ae60', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px', fontSize: '1rem', cursor: 'pointer' }}
-        onClick={handleConfirmOrder}
-      >
-        Confirm Order
-      </button>
     </div>
   );
 }

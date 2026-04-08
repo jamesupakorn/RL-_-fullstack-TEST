@@ -266,48 +266,46 @@ function MainMenu() {
   };
 
   return (
-    <div className="App">
-      <h1>Cafe Menu</h1>
-      <button className="cart-button" style={{ right: 24 }} onClick={() => setShowCart(true)}>
-        Cart ({cartCount})
-      </button>
-      <button className="cart-button" style={{ right: 160 }} onClick={handleAdminClick}>
-        Admin
-        {lowStockCount > 0 && (
-          <span
-            style={{
-              position: 'absolute',
-              top: -8,
-              right: -6,
-              minWidth: 20,
-              height: 20,
-              borderRadius: '50%',
-              background: '#e74c3c',
-              color: '#fff',
-              fontSize: 12,
-              fontWeight: 700,
-              lineHeight: '20px',
-              padding: '0 4px',
-              boxSizing: 'border-box',
-              textAlign: 'center',
-              pointerEvents: 'none',
-            }}
-          >
-            {lowStockCount}
-          </span>
-        )}
-      </button>
+    <div className="App cafe-shell">
+      <header className="hero">
+        <img className="hero-logo" src="/toothbin.png" alt="Toothbin Beverage" />
+        <div className="hero-copy">
+          <p className="hero-kicker">TOOTHBIN BEVERAGE</p>
+          <h1>Cafe Menu</h1>
+          <p className="hero-sub">เลือกเมนูที่ต้องการ ปรับ Add-on แล้วกดใส่ตะกร้าได้ทันที</p>
+        </div>
+        <div className="hero-actions">
+          <button className="cart-button" onClick={() => setShowCart(true)}>
+            Cart ({cartCount})
+          </button>
+          <button className="cart-button" onClick={handleAdminClick}>
+            Admin
+            {lowStockCount > 0 && (
+              <span className="admin-badge">
+                {lowStockCount}
+              </span>
+            )}
+          </button>
+        </div>
+      </header>
+
+      <section className="menu-section">
       {loading && (
         <div className="spinner-container">
           <div className="spinner" />
           <div>Loading data...</div>
         </div>
       )}
-      {error && <div style={{ color: 'red' }}>Error: {error}</div>}
+      {error && <div className="error-text">Error: {error}</div>}
+
+      <div className="menu-layout">
+      <div className="menu-left-panel">
+      <div className="section-heading">เลือกเมนูหลัก</div>
+      <div className="menu-grid">
       {menus.map((menu) => (
         <button
           key={menu.menu_id}
-          style={{ margin: 8, ...(isMenuAvailable(menu) ? {} : { opacity: 0.45, cursor: 'not-allowed' }) }}
+          className={`menu-chip ${selectedMenuName === menu.menu_name_en ? 'is-active' : ''} ${isMenuAvailable(menu) ? '' : 'is-disabled'}`}
           onClick={() => handleMenuClick(menu)}
           disabled={!isMenuAvailable(menu)}
           title={!isMenuAvailable(menu) ? 'วัตถุดิบของเมนูนี้หมด/ไม่พอ' : ''}
@@ -315,9 +313,11 @@ function MainMenu() {
           {menu.menu_name_th || menu.menu_name_en}
         </button>
       ))}
+      </div>
       {/* ปุ่ม subtype เฉพาะที่เมนูนั้นมี */}
       {selectedMenuName && selectedSubtypes && (
-        <div style={{ marginTop: 16 }}>
+        <div className="subtype-wrap">
+          <div className="section-subheading">เลือกระดับความเย็น/ร้อน</div>
           <SubtypeButtons
             subtypes={allSubtypes.filter(st => selectedSubtypes.includes(st.subtype_id))}
             onSelect={handleSubtypeClick}
@@ -326,6 +326,9 @@ function MainMenu() {
           />
         </div>
       )}
+      </div>
+
+      <div className="menu-right-panel">
       {/* ส่วนผสมและรายละเอียดตรงกับเมนู+subtype ที่เลือก */}
       {selectedMenuObj && selectedSubtype && (
         <MenuIngredients
@@ -339,21 +342,31 @@ function MainMenu() {
           canAddToCart={selectedSubtype ? isSubtypeAvailable(selectedMenuName, selectedSubtype) : true}
         />
       )}
+
+      {!selectedMenuObj && (
+        <div className="menu-placeholder">
+          <h3>พร้อมเสิร์ฟ</h3>
+          <p>เลือกเมนูและประเภทด้านซ้าย เพื่อดูส่วนผสมและ Add-on ทางด้านนี้</p>
+        </div>
+      )}
+      </div>
+      </div>
+      </section>
       {showCart && (
         <div className="cart-popup-overlay" onClick={() => setShowCart(false)}>
-          <div className="cart-popup" onClick={e => e.stopPropagation()}>
+          <div className="cart-popup cart-popup--cart" onClick={e => e.stopPropagation()}>
             <Cart
               items={cartItems}
               onRemove={handleRemoveFromCart}
               onUpdateQty={handleUpdateQty}
               cartTotal={cartTotal}
               cartTotalDuration={cartTotalDuration}
+              onClose={() => setShowCart(false)}
               onConfirmOrder={() => {
                 setShowCart(false);
                 setShowCountdown(true);
               }}
             />
-            <button className="cart-close-button" onClick={() => setShowCart(false)}>Close</button>
           </div>
         </div>
       )}
