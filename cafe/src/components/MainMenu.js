@@ -174,6 +174,17 @@ function MainMenu() {
       }
     };
 
+  const resetMenuSelection = () => {
+    setSelectedMenuName(null);
+    setSelectedSubtypes(null);
+    setSelectedSubtype(null);
+    setSelectedMenuObj(null);
+    setIngredients([]);
+    setMenuDuration(null);
+    setIngredientError(null);
+    setIngredientLoading(false);
+  };
+
   // เพิ่มสินค้าลงตะกร้า
   const handleAddToCart = (selectedAddons = []) => {
     if (!isSubtypeAvailable(selectedMenuName, selectedSubtype)) return;
@@ -199,6 +210,7 @@ function MainMenu() {
     const duration = (menuDuration || menuObj.duration || 0) + extraDuration;
     const finalPrice = (Number(menuObj.price) || 0) + extraPrice;
     setCartItems(prev => addToCart(prev, menuObj, duration, finalPrice, selectedAddons));
+    resetMenuSelection();
     console.log('Add to cart:', menuObj.menu_id, selectedMenuObj.menu_name_th || selectedMenuObj.menu_name_en, 'price:', menuObj.price);
   };
 
