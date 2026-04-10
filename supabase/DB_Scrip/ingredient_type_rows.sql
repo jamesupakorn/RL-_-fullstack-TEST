@@ -1,0 +1,1 @@
+INSERT INTO "public"."ingredient_type" ("type_id", "type_name") VALUES ('T01', 'Beverage Ingredient'), ('T02', 'Equipment');
