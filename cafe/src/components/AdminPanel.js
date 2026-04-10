@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { URL } from './config';
+import { getIngredientTypeLabelTh, getStockStatus, getStockStatusLabelTh, STOCK_STATUS } from '../utils/stockUtils';
+import '../styles/AdminPanel.css';
 
 const API = URL;
 const getAdminKey = () => sessionStorage.getItem('adminKeyHash') || '';
@@ -85,13 +87,13 @@ function StockTab({ onDataChange }) {
     } catch (e) { setError(e.message); }
   };
 
-  const fld = (key, label, type = 'text', obj, setter) => (
-    <td>
+  const fld = (key, type = 'text', obj, setter) => (
+    <td className="admin-td">
       <input
         type={type}
         value={obj[key] ?? ''}
         onChange={e => setter(prev => ({ ...prev, [key]: type === 'number' ? Number(e.target.value) : e.target.value }))}
-        style={{ width: type === 'number' ? 70 : 110, padding: '2px 4px' }}
+        className={`admin-input ${type === 'number' ? 'admin-input--sm' : 'admin-input--md'}`}
       />
     </td>
   );
@@ -99,86 +101,85 @@ function StockTab({ onDataChange }) {
   const sortedItems = [...items].sort((a, b) => Number(a.stock_qty) - Number(b.stock_qty));
 
   return (
-    <div>
-      {error && <div style={{ color: 'red', marginBottom: 8 }}>Error: {error} <button onClick={() => setError(null)}>✕</button></div>}
-      <div style={{ marginBottom: 12 }}>
-        <button onClick={() => setShowAdd(v => !v)} style={btnStyle('#27ae60')}>+ เพิ่มวัตถุดิบ</button>
-        <button onClick={load} style={{ ...btnStyle('#555'), marginLeft: 8 }}>↺ Refresh</button>
+    <div className="admin-tab-content">
+      {error && <div className="admin-error">Error: {error} <button className="admin-error-close" onClick={() => setError(null)}>✕</button></div>}
+      <div className="admin-toolbar">
+        <button onClick={() => setShowAdd(v => !v)} className="admin-btn admin-btn--success">+ เพิ่มวัตถุดิบ</button>
+        <button onClick={load} className="admin-btn admin-btn--neutral">↺ Refresh</button>
       </div>
       {showAdd && (
-        <table style={tableStyle}>
-          <thead><tr style={{ background: '#e8f5e9' }}>
-            <th style={th}>ID</th><th style={th}>ชื่อ TH</th><th style={th}>ชื่อ EN</th>
-            <th style={th}>Type</th><th style={th}>Stock</th><th style={th}>หน่วย TH</th>
-            <th style={th}>หน่วย EN</th><th style={th}>เวลาเพิ่ม(วิ)</th><th style={th}>ราคา Add-on</th><th style={th}>สถานะ</th><th style={th}></th>
+        <div className="admin-table-wrap">
+        <table className="admin-table admin-table--editor">
+          <thead><tr>
+            <th className="admin-th">ID</th><th className="admin-th">ชื่อ TH</th><th className="admin-th">ชื่อ EN</th>
+            <th className="admin-th">Type</th><th className="admin-th">Stock</th><th className="admin-th">หน่วย TH</th>
+            <th className="admin-th">หน่วย EN</th><th className="admin-th">เวลาเพิ่ม(วิ)</th><th className="admin-th">ราคา Add-on</th><th className="admin-th">สถานะ</th><th className="admin-th"></th>
           </tr></thead>
           <tbody><tr>
-            {['ingredient_id','ingredient_name_th','ingredient_name_en'].map(k => fld(k, k, 'text', newItem, setNewItem))}
-            <td><select value={newItem.ingredient_type} onChange={e => setNewItem(p => ({ ...p, ingredient_type: e.target.value }))} style={{ padding: '2px 4px' }}>
+            {['ingredient_id','ingredient_name_th','ingredient_name_en'].map(k => fld(k, 'text', newItem, setNewItem))}
+            <td className="admin-td"><select value={newItem.ingredient_type} onChange={e => setNewItem(p => ({ ...p, ingredient_type: e.target.value }))} className="admin-select">
               <option value="T01">T01 - วัตถุดิบ</option>
               <option value="T02">T02 - อุปกรณ์</option>
             </select></td>
-            {fld('stock_qty','',  'number', newItem, setNewItem)}
-            {fld('unit_th','', 'text', newItem, setNewItem)}
-            {fld('unit_en','', 'text', newItem, setNewItem)}
-            {fld('duration','', 'number', newItem, setNewItem)}
-            {fld('addon_price','', 'number', newItem, setNewItem)}
-            <td style={td}>-</td>
-            <td><button onClick={addItem} style={btnStyle('#27ae60')}>บันทึก</button></td>
+            {fld('stock_qty', 'number', newItem, setNewItem)}
+            {fld('unit_th', 'text', newItem, setNewItem)}
+            {fld('unit_en', 'text', newItem, setNewItem)}
+            {fld('duration', 'number', newItem, setNewItem)}
+            {fld('addon_price', 'number', newItem, setNewItem)}
+            <td className="admin-td">-</td>
+            <td className="admin-td"><button onClick={addItem} className="admin-btn admin-btn--success">บันทึก</button></td>
           </tr></tbody>
         </table>
+        </div>
       )}
-      {loading ? <div>Loading...</div> : (
-        <div style={{ overflowX: 'auto' }}>
-          <table style={tableStyle}>
-            <thead><tr style={{ background: '#f5f5f5' }}>
-              <th style={th}>ID</th><th style={th}>ชื่อ TH</th><th style={th}>ชื่อ EN</th>
-              <th style={th}>Type</th><th style={th}>Stock</th><th style={th}>หน่วย TH</th>
-              <th style={th}>หน่วย EN</th><th style={th}>เวลาเพิ่ม(วิ)</th><th style={th}>ราคา Add-on</th><th style={th}>สถานะ</th><th style={th}>จัดการ</th>
+      {loading ? <div className="admin-loading">Loading...</div> : (
+        <div className="admin-table-wrap">
+          <table className="admin-table">
+            <thead><tr>
+              <th className="admin-th">ID</th><th className="admin-th">ชื่อ TH</th><th className="admin-th">ชื่อ EN</th>
+              <th className="admin-th">Type</th><th className="admin-th">Stock</th><th className="admin-th">หน่วย TH</th>
+              <th className="admin-th">หน่วย EN</th><th className="admin-th">เวลาเพิ่ม(วิ)</th><th className="admin-th">ราคา Add-on</th><th className="admin-th">สถานะ</th><th className="admin-th">จัดการ</th>
             </tr></thead>
             <tbody>
               {sortedItems.map(item => editId === item.ingredient_id ? (
-                <tr key={item.ingredient_id} style={{ background: '#fffde7' }}>
-                  <td style={td}>{item.ingredient_id}</td>
-                  {['ingredient_name_th','ingredient_name_en'].map(k => fld(k,'','text',editData,setEditData))}
-                  <td><select value={editData.ingredient_type} onChange={e => setEditData(p => ({...p,ingredient_type:e.target.value}))} style={{padding:'2px 4px'}}>
+                <tr key={item.ingredient_id} className="admin-row admin-row--editing">
+                  <td className="admin-td">{item.ingredient_id}</td>
+                  {['ingredient_name_th','ingredient_name_en'].map(k => fld(k, 'text', editData, setEditData))}
+                  <td className="admin-td"><select value={editData.ingredient_type} onChange={e => setEditData(p => ({...p,ingredient_type:e.target.value}))} className="admin-select">
                     <option value="T01">T01 - วัตถุดิบ</option>
                     <option value="T02">T02 - อุปกรณ์</option>
                   </select></td>
-                  {fld('stock_qty','','number',editData,setEditData)}
-                  {fld('unit_th','','text',editData,setEditData)}
-                  {fld('unit_en','','text',editData,setEditData)}
-                  {fld('duration','','number',editData,setEditData)}
-                  {fld('addon_price','','number',editData,setEditData)}
-                  <td style={td}>-</td>
-                  <td>
-                    <button onClick={saveEdit} style={btnStyle('#27ae60')}>บันทึก</button>
-                    <button onClick={cancelEdit} style={{ ...btnStyle('#888'), marginLeft: 4 }}>ยกเลิก</button>
+                  {fld('stock_qty', 'number', editData, setEditData)}
+                  {fld('unit_th', 'text', editData, setEditData)}
+                  {fld('unit_en', 'text', editData, setEditData)}
+                  {fld('duration', 'number', editData, setEditData)}
+                  {fld('addon_price', 'number', editData, setEditData)}
+                  <td className="admin-td">-</td>
+                  <td className="admin-td admin-actions-cell">
+                    <button onClick={saveEdit} className="admin-btn admin-btn--success">บันทึก</button>
+                    <button onClick={cancelEdit} className="admin-btn admin-btn--light">ยกเลิก</button>
                   </td>
                 </tr>
               ) : (
                 <tr
                   key={item.ingredient_id}
-                  style={{
-                    background: Number(item.stock_qty) <= 0 ? '#ffe8e8' : Number(item.stock_qty) <= LOW_STOCK_THRESHOLD ? '#fff8e1' : undefined,
-                    borderLeft: Number(item.stock_qty) <= 0 ? '4px solid #e74c3c' : Number(item.stock_qty) <= LOW_STOCK_THRESHOLD ? '4px solid #f39c12' : undefined,
-                  }}
+                  className={`admin-row ${getStockStatus(item.stock_qty, LOW_STOCK_THRESHOLD) === STOCK_STATUS.OUT ? 'admin-row--danger' : getStockStatus(item.stock_qty, LOW_STOCK_THRESHOLD) === STOCK_STATUS.LOW ? 'admin-row--warn' : ''}`}
                 >
-                  <td style={td}>{item.ingredient_id}</td>
-                  <td style={td}>{item.ingredient_name_th}</td>
-                  <td style={td}>{item.ingredient_name_en}</td>
-                  <td style={td}>{item.ingredient_type === 'T01' ? 'วัตถุดิบ' : 'อุปกรณ์'}</td>
-                  <td style={{ ...td, textAlign: 'right', fontWeight: Number(item.stock_qty) <= LOW_STOCK_THRESHOLD ? 700 : undefined, color: Number(item.stock_qty) <= 0 ? 'red' : Number(item.stock_qty) <= LOW_STOCK_THRESHOLD ? '#e67e00' : undefined }}>{item.stock_qty}</td>
-                  <td style={td}>{item.unit_th}</td>
-                  <td style={td}>{item.unit_en}</td>
-                  <td style={td}>{item.duration}</td>
-                  <td style={{ ...td, textAlign: 'right' }}>{Number(item.addon_price) || 0} ฿</td>
-                  <td style={{ ...td, fontWeight: 700, color: Number(item.stock_qty) <= 0 ? '#c0392b' : Number(item.stock_qty) <= LOW_STOCK_THRESHOLD ? '#d68910' : '#2d3436' }}>
-                    {Number(item.stock_qty) <= 0 ? 'หมด' : Number(item.stock_qty) <= LOW_STOCK_THRESHOLD ? 'ใกล้หมด' : 'ปกติ'}
+                  <td className="admin-td">{item.ingredient_id}</td>
+                  <td className="admin-td">{item.ingredient_name_th}</td>
+                  <td className="admin-td">{item.ingredient_name_en}</td>
+                  <td className="admin-td">{getIngredientTypeLabelTh(item.ingredient_type)}</td>
+                  <td className="admin-td admin-td--num">{item.stock_qty}</td>
+                  <td className="admin-td">{item.unit_th}</td>
+                  <td className="admin-td">{item.unit_en}</td>
+                  <td className="admin-td">{item.duration}</td>
+                  <td className="admin-td admin-td--num">{Number(item.addon_price) || 0} ฿</td>
+                  <td className="admin-td admin-td--status">
+                    {getStockStatusLabelTh(getStockStatus(item.stock_qty, LOW_STOCK_THRESHOLD))}
                   </td>
-                  <td style={td}>
-                    <button onClick={() => startEdit(item)} style={btnStyle('#2980b9')}>แก้ไข</button>
-                    <button onClick={() => deleteItem(item.ingredient_id)} style={{ ...btnStyle('#e74c3c'), marginLeft: 4 }}>ลบ</button>
+                  <td className="admin-td admin-actions-cell">
+                    <button onClick={() => startEdit(item)} className="admin-btn admin-btn--primary">แก้ไข</button>
+                    <button onClick={() => deleteItem(item.ingredient_id)} className="admin-btn admin-btn--danger">ลบ</button>
                   </td>
                 </tr>
               ))}
@@ -268,74 +269,81 @@ function MenuTab({ onDataChange }) {
   };
 
   const typeSelect = (val, setter) => (
-    <td><select value={val} onChange={e => setter(p => ({ ...p, menu_type: e.target.value }))} style={{ padding: '2px 4px' }}>
+    <td className="admin-td"><select value={val} onChange={e => setter(p => ({ ...p, menu_type: e.target.value }))} className="admin-select">
       {menuTypes.map(t => <option key={t.type_id} value={t.type_id}>{t.type_name_th || t.type_id}</option>)}
     </select></td>
   );
 
   const subtypeSelect = (val, setter) => (
-    <td><select value={val} onChange={e => setter(p => ({ ...p, menu_subtype: e.target.value }))} style={{ padding: '2px 4px' }}>
+    <td className="admin-td"><select value={val} onChange={e => setter(p => ({ ...p, menu_subtype: e.target.value }))} className="admin-select">
       {subtypes.map(s => <option key={s.subtype_id} value={s.subtype_id}>{s.subtype_name_th || s.subtype_id}</option>)}
     </select></td>
   );
 
+  const inputSizeClass = (width) => {
+    if (width <= 90) return 'admin-input--sm';
+    if (width <= 130) return 'admin-input--md';
+    return 'admin-input--lg';
+  };
+
   const numFld = (key, obj, setter, w = 70) => (
-    <td><input type="number" value={obj[key] ?? 0} onChange={e => setter(p => ({ ...p, [key]: Number(e.target.value) }))} style={{ width: w, padding: '2px 4px' }} /></td>
+    <td className="admin-td"><input className={`admin-input ${inputSizeClass(w + 18)}`} type="number" value={obj[key] ?? 0} onChange={e => setter(p => ({ ...p, [key]: Number(e.target.value) }))} /></td>
   );
   const txtFld = (key, obj, setter, w = 110) => (
-    <td><input type="text" value={obj[key] ?? ''} onChange={e => setter(p => ({ ...p, [key]: e.target.value }))} style={{ width: w, padding: '2px 4px' }} /></td>
+    <td className="admin-td"><input className={`admin-input ${inputSizeClass(w + 18)}`} type="text" value={obj[key] ?? ''} onChange={e => setter(p => ({ ...p, [key]: e.target.value }))} /></td>
   );
 
   return (
-    <div>
-      {error && <div style={{ color: 'red', marginBottom: 8 }}>Error: {error} <button onClick={() => setError(null)}>✕</button></div>}
-      <div style={{ marginBottom: 12 }}>
-        <button onClick={() => setShowAdd(v => !v)} style={btnStyle('#27ae60')}>+ เพิ่มเมนู</button>
-        <button onClick={load} style={{ ...btnStyle('#555'), marginLeft: 8 }}>↺ Refresh</button>
+    <div className="admin-tab-content">
+      {error && <div className="admin-error">Error: {error} <button className="admin-error-close" onClick={() => setError(null)}>✕</button></div>}
+      <div className="admin-toolbar">
+        <button onClick={() => setShowAdd(v => !v)} className="admin-btn admin-btn--success">+ เพิ่มเมนู</button>
+        <button onClick={load} className="admin-btn admin-btn--neutral">↺ Refresh</button>
       </div>
 
       {/* Modal ingredient จัดการ */}
       {ingredientModal && (
-        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.4)', zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ background: '#fff', borderRadius: 8, padding: 24, minWidth: 500, maxHeight: '80vh', overflow: 'auto' }}>
-            <h3 style={{ marginTop: 0 }}>วัตถุดิบของเมนู: {ingredientModal}</h3>
-            <table style={tableStyle}>
-              <thead><tr style={{ background: '#f5f5f5' }}>
-                <th style={th}>Ingredient ID</th><th style={th}>ชื่อ TH</th><th style={th}>จำนวน</th><th style={th}>หน่วย</th><th style={th}>ลบ</th>
+        <div className="admin-modal-overlay">
+          <div className="admin-modal-card">
+            <h3 className="admin-modal-title">วัตถุดิบของเมนู: {ingredientModal}</h3>
+            <table className="admin-table">
+              <thead><tr>
+                <th className="admin-th">Ingredient ID</th><th className="admin-th">ชื่อ TH</th><th className="admin-th">จำนวน</th><th className="admin-th">หน่วย</th><th className="admin-th">ลบ</th>
               </tr></thead>
               <tbody>
                 {menuIngredients.map(r => (
                   <tr key={r.ingredient_id}>
-                    <td style={td}>{r.ingredient_id}</td>
-                    <td style={td}>{r.ingredient_name_th}</td>
-                    <td style={td}>{r.amount}</td>
-                    <td style={td}>{r.unit_th}</td>
-                    <td style={td}><button onClick={() => deleteMenuIngredient(ingredientModal, r.ingredient_id)} style={btnStyle('#e74c3c')}>ลบ</button></td>
+                    <td className="admin-td">{r.ingredient_id}</td>
+                    <td className="admin-td">{r.ingredient_name_th}</td>
+                    <td className="admin-td">{r.amount}</td>
+                    <td className="admin-td">{r.unit_th}</td>
+                    <td className="admin-td"><button onClick={() => deleteMenuIngredient(ingredientModal, r.ingredient_id)} className="admin-btn admin-btn--danger">ลบ</button></td>
                   </tr>
                 ))}
-                <tr style={{ background: '#f0fff4' }}>
-                  <td><select value={newIngRow.ingredient_id} onChange={e => setNewIngRow(p => ({ ...p, ingredient_id: e.target.value }))} style={{ padding: '2px 4px', width: 130 }}>
+                <tr className="admin-row admin-row--add">
+                  <td className="admin-td"><select className="admin-select admin-select--wide" value={newIngRow.ingredient_id} onChange={e => setNewIngRow(p => ({ ...p, ingredient_id: e.target.value }))}>
                     <option value="">-- เลือก --</option>
                     {ingredients.map(i => <option key={i.ingredient_id} value={i.ingredient_id}>{i.ingredient_id} {i.ingredient_name_th}</option>)}
                   </select></td>
-                  <td></td>
-                  <td><input type="number" value={newIngRow.amount} onChange={e => setNewIngRow(p => ({ ...p, amount: Number(e.target.value) }))} style={{ width: 60, padding: '2px 4px' }} /></td>
-                  <td></td>
-                  <td><button onClick={addMenuIngredient} style={btnStyle('#27ae60')}>+ เพิ่ม</button></td>
+                  <td className="admin-td"></td>
+                  <td className="admin-td"><input className="admin-input admin-input--sm" type="number" value={newIngRow.amount} onChange={e => setNewIngRow(p => ({ ...p, amount: Number(e.target.value) }))} /></td>
+                  <td className="admin-td"></td>
+                  <td className="admin-td"><button onClick={addMenuIngredient} className="admin-btn admin-btn--success">+ เพิ่ม</button></td>
                 </tr>
               </tbody>
             </table>
-            <button onClick={() => setIngredientModal(null)} style={{ ...btnStyle('#888'), marginTop: 12 }}>ปิด</button>
+            <button onClick={() => setIngredientModal(null)} className="admin-btn admin-btn--light admin-modal-close">ปิด</button>
           </div>
         </div>
       )}
 
       {showAdd && (
-        <table style={{ ...tableStyle, marginBottom: 12 }}>
-          <thead><tr style={{ background: '#e8f5e9' }}>
-            <th style={th}>menu_id</th><th style={th}>ชื่อ TH</th><th style={th}>ชื่อ EN</th>
-            <th style={th}>ประเภท</th><th style={th}>Subtype</th><th style={th}>มีนม</th>
-            <th style={th}>ราคา</th><th style={th}>เวลา(วิ)</th><th style={th}></th>
+        <div className="admin-table-wrap">
+        <table className="admin-table admin-table--editor">
+          <thead><tr>
+            <th className="admin-th">menu_id</th><th className="admin-th">ชื่อ TH</th><th className="admin-th">ชื่อ EN</th>
+            <th className="admin-th">ประเภท</th><th className="admin-th">Subtype</th><th className="admin-th">มีนม</th>
+            <th className="admin-th">ราคา</th><th className="admin-th">เวลา(วิ)</th><th className="admin-th"></th>
           </tr></thead>
           <tbody><tr>
             {txtFld('menu_id', newItem, setNewItem, 80)}
@@ -343,53 +351,54 @@ function MenuTab({ onDataChange }) {
             {txtFld('menu_name_en', newItem, setNewItem)}
             {typeSelect(newItem.menu_type, setNewItem)}
             {subtypeSelect(newItem.menu_subtype, setNewItem)}
-            <td><input type="checkbox" checked={!!newItem.has_milk} onChange={e => setNewItem(p => ({ ...p, has_milk: e.target.checked }))} /></td>
+            <td className="admin-td"><input type="checkbox" checked={!!newItem.has_milk} onChange={e => setNewItem(p => ({ ...p, has_milk: e.target.checked }))} /></td>
             {numFld('price', newItem, setNewItem)}
             {numFld('duration', newItem, setNewItem)}
-            <td><button onClick={addMenu} style={btnStyle('#27ae60')}>บันทึก</button></td>
+            <td className="admin-td"><button onClick={addMenu} className="admin-btn admin-btn--success">บันทึก</button></td>
           </tr></tbody>
         </table>
+        </div>
       )}
 
-      {loading ? <div>Loading...</div> : (
-        <div style={{ overflowX: 'auto' }}>
-          <table style={tableStyle}>
-            <thead><tr style={{ background: '#f5f5f5' }}>
-              <th style={th}>menu_id</th><th style={th}>ชื่อ TH</th><th style={th}>ชื่อ EN</th>
-              <th style={th}>ประเภท</th><th style={th}>Subtype</th><th style={th}>มีนม</th>
-              <th style={th}>ราคา</th><th style={th}>เวลา(วิ)</th><th style={th}>วัตถุดิบ</th><th style={th}>จัดการ</th>
+      {loading ? <div className="admin-loading">Loading...</div> : (
+        <div className="admin-table-wrap">
+          <table className="admin-table">
+            <thead><tr>
+              <th className="admin-th">menu_id</th><th className="admin-th">ชื่อ TH</th><th className="admin-th">ชื่อ EN</th>
+              <th className="admin-th">ประเภท</th><th className="admin-th">Subtype</th><th className="admin-th">มีนม</th>
+              <th className="admin-th">ราคา</th><th className="admin-th">เวลา(วิ)</th><th className="admin-th">วัตถุดิบ</th><th className="admin-th">จัดการ</th>
             </tr></thead>
             <tbody>
               {menus.map(menu => editId === menu.menu_id ? (
-                <tr key={menu.menu_id} style={{ background: '#fffde7' }}>
-                  <td style={td}>{menu.menu_id}</td>
+                <tr key={menu.menu_id} className="admin-row admin-row--editing">
+                  <td className="admin-td">{menu.menu_id}</td>
                   {txtFld('menu_name_th', editData, setEditData)}
                   {txtFld('menu_name_en', editData, setEditData)}
                   {typeSelect(editData.menu_type, setEditData)}
                   {subtypeSelect(editData.menu_subtype, setEditData)}
-                  <td><input type="checkbox" checked={!!editData.has_milk} onChange={e => setEditData(p => ({ ...p, has_milk: e.target.checked }))} /></td>
+                  <td className="admin-td"><input type="checkbox" checked={!!editData.has_milk} onChange={e => setEditData(p => ({ ...p, has_milk: e.target.checked }))} /></td>
                   {numFld('price', editData, setEditData)}
                   {numFld('duration', editData, setEditData)}
-                  <td></td>
-                  <td>
-                    <button onClick={saveEdit} style={btnStyle('#27ae60')}>บันทึก</button>
-                    <button onClick={() => setEditId(null)} style={{ ...btnStyle('#888'), marginLeft: 4 }}>ยกเลิก</button>
+                  <td className="admin-td"></td>
+                  <td className="admin-td admin-actions-cell">
+                    <button onClick={saveEdit} className="admin-btn admin-btn--success">บันทึก</button>
+                    <button onClick={() => setEditId(null)} className="admin-btn admin-btn--light">ยกเลิก</button>
                   </td>
                 </tr>
               ) : (
                 <tr key={menu.menu_id}>
-                  <td style={td}>{menu.menu_id}</td>
-                  <td style={td}>{menu.menu_name_th}</td>
-                  <td style={td}>{menu.menu_name_en}</td>
-                  <td style={td}>{menuTypes.find(t => t.type_id === menu.menu_type)?.type_name_th || menu.menu_type}</td>
-                  <td style={td}>{subtypes.find(s => s.subtype_id === menu.menu_subtype)?.subtype_name_th || menu.menu_subtype}</td>
-                  <td style={{ ...td, textAlign: 'center' }}>{menu.has_milk ? '✓' : '-'}</td>
-                  <td style={{ ...td, textAlign: 'right' }}>{menu.price} ฿</td>
-                  <td style={{ ...td, textAlign: 'right' }}>{menu.duration} วิ</td>
-                  <td style={td}><button onClick={() => loadMenuIngredients(menu.menu_id)} style={btnStyle('#8e44ad')}>วัตถุดิบ</button></td>
-                  <td style={td}>
-                    <button onClick={() => { setEditId(menu.menu_id); setEditData({ ...menu }); }} style={btnStyle('#2980b9')}>แก้ไข</button>
-                    <button onClick={() => deleteMenu(menu.menu_id)} style={{ ...btnStyle('#e74c3c'), marginLeft: 4 }}>ลบ</button>
+                  <td className="admin-td">{menu.menu_id}</td>
+                  <td className="admin-td">{menu.menu_name_th}</td>
+                  <td className="admin-td">{menu.menu_name_en}</td>
+                  <td className="admin-td">{menuTypes.find(t => t.type_id === menu.menu_type)?.type_name_th || menu.menu_type}</td>
+                  <td className="admin-td">{subtypes.find(s => s.subtype_id === menu.menu_subtype)?.subtype_name_th || menu.menu_subtype}</td>
+                  <td className="admin-td admin-td--center">{menu.has_milk ? '✓' : '-'}</td>
+                  <td className="admin-td admin-td--num">{menu.price} ฿</td>
+                  <td className="admin-td admin-td--num">{menu.duration} วิ</td>
+                  <td className="admin-td"><button onClick={() => loadMenuIngredients(menu.menu_id)} className="admin-btn admin-btn--accent">วัตถุดิบ</button></td>
+                  <td className="admin-td admin-actions-cell">
+                    <button onClick={() => { setEditId(menu.menu_id); setEditData({ ...menu }); }} className="admin-btn admin-btn--primary">แก้ไข</button>
+                    <button onClick={() => deleteMenu(menu.menu_id)} className="admin-btn admin-btn--danger">ลบ</button>
                   </td>
                 </tr>
               ))}
@@ -400,12 +409,6 @@ function MenuTab({ onDataChange }) {
     </div>
   );
 }
-
-// ===== Shared styles =====
-const tableStyle = { width: '100%', borderCollapse: 'collapse', fontSize: 14 };
-const th = { padding: '8px 10px', borderBottom: '2px solid #ddd', textAlign: 'left', whiteSpace: 'nowrap' };
-const td = { padding: '6px 10px', borderBottom: '1px solid #eee' };
-const btnStyle = (bg) => ({ background: bg, color: '#fff', border: 'none', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', fontSize: 13 });
 
 // ===== AdminPanel main =====
 function AdminPanel({ onClose, onLogout, onDataChange }) {
@@ -423,18 +426,18 @@ function AdminPanel({ onClose, onLogout, onDataChange }) {
     <button
       key={key}
       onClick={() => setTab(key)}
-      style={{ padding: '8px 20px', border: 'none', borderBottom: tab === key ? '3px solid #2980b9' : '3px solid transparent', background: 'none', cursor: 'pointer', fontWeight: tab === key ? 700 : 400, fontSize: 15 }}
+      className={`admin-tab-btn ${tab === key ? 'is-active' : ''}`}
     >{label}</button>
   );
 
   return (
     <div className="cart-popup-overlay" onClick={handleClose}>
-      <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 10, padding: 28, width: '95vw', maxWidth: 1100, maxHeight: '90vh', overflow: 'auto', boxShadow: '0 4px 24px #0003' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <h2 style={{ margin: 0 }}>ระบบจัดการหลังบ้าน</h2>
-          <button onClick={handleClose} style={{ ...btnStyle('#888'), fontSize: 16, padding: '6px 14px' }}>✕ ปิด</button>
+      <div onClick={e => e.stopPropagation()} className="admin-panel-card">
+        <div className="admin-panel-header">
+          <h2 className="admin-panel-title">ระบบจัดการหลังบ้าน</h2>
+          <button onClick={handleClose} className="admin-btn admin-btn--light admin-panel-close">✕ ปิด</button>
         </div>
-        <div style={{ borderBottom: '1px solid #ddd', marginBottom: 20 }}>
+        <div className="admin-tab-strip">
           {tabBtn('stock', '📦 จัดการสต็อก')}
           {tabBtn('menu', '🍵 จัดการเมนู')}
         </div>

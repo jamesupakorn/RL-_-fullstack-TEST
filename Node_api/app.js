@@ -10,6 +10,7 @@ import { getMenuIngredients, getMenuIngredientsByNameSubtype } from './tables/me
 import { getMenuSubtypes } from './tables/menu_subtype.js';
 import ingredientRouter from './tables/ingredient.js';
 import { isAdminKeyValid, requireAdmin } from './auth/adminAuth.js';
+import { handleDbError, notFound } from './db/helpers.js';
 
 const app = express();
 
@@ -35,7 +36,7 @@ app.get('/api/menu_ingredient_by_name_subtype', async (req, res) => {
     const data = await getMenuIngredientsByNameSubtype(menu_name, subtype_id, ingredient_type);
     res.json(data);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    handleDbError(res, err);
   }
 });
 
@@ -45,7 +46,7 @@ app.get('/api/menu', async (req, res) => {
     const menus = await getMenus(req.query);
     res.json(menus);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    handleDbError(res, err);
   }
 });
 
@@ -57,27 +58,29 @@ app.get('/api/menu_ingredient', async (req, res) => {
     const data = await getMenuIngredients(menu_id, ingredient_type);
     res.json(data);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    handleDbError(res, err);
   }
 });
 
 // GET /api/menu_subtype - ดึงข้อมูลประเภทเมนูย่อย (Hot/Iced/Frappe)
 app.get('/api/menu_subtype', async (req, res) => {
+  void req;
   try {
     const subtypes = await getMenuSubtypes();
     res.json(subtypes);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    handleDbError(res, err);
   }
 });
 
 // GET /api/menu_type - ดึงข้อมูลประเภทเมนูหลัก
 app.get('/api/menu_type', requireAdmin, async (req, res) => {
+  void req;
   try {
     const result = await pool.query('SELECT * FROM menu_type ORDER BY type_id');
     res.json(result.rows);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    handleDbError(res, err);
   }
 });
 
@@ -95,7 +98,7 @@ app.post('/api/menu', requireAdmin, async (req, res) => {
     );
     res.status(201).json(result.rows[0]);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    handleDbError(res, err);
   }
 });
 
@@ -109,10 +112,10 @@ app.put('/api/menu/:id', requireAdmin, async (req, res) => {
        WHERE menu_id=$8 RETURNING *`,
       [menu_name_th, menu_name_en, menu_type, menu_subtype, has_milk, price, duration, id]
     );
-    if (result.rowCount === 0) return res.status(404).json({ error: 'Menu not found' });
+    if (result.rowCount === 0) return notFound(res, 'Menu');
     res.json(result.rows[0]);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    handleDbError(res, err);
   }
 });
 
@@ -122,10 +125,10 @@ app.delete('/api/menu/:id', requireAdmin, async (req, res) => {
   try {
     await pool.query('DELETE FROM menu_ingredient WHERE menu_id = $1', [id]);
     const result = await pool.query('DELETE FROM menu WHERE menu_id = $1 RETURNING *', [id]);
-    if (result.rowCount === 0) return res.status(404).json({ error: 'Menu not found' });
+    if (result.rowCount === 0) return notFound(res, 'Menu');
     res.json({ success: true, deleted: result.rows[0] });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    handleDbError(res, err);
   }
 });
 
@@ -144,7 +147,7 @@ app.get('/api/menu_ingredient_list/:menu_id', requireAdmin, async (req, res) => 
     );
     res.json(result.rows);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    handleDbError(res, err);
   }
 });
 
@@ -161,7 +164,7 @@ app.post('/api/menu_ingredient', requireAdmin, async (req, res) => {
     );
     res.status(201).json(result.rows[0]);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    handleDbError(res, err);
   }
 });
 
@@ -172,17 +175,18 @@ app.delete('/api/menu_ingredient/:menu_id/:ingredient_id', requireAdmin, async (
     await pool.query('DELETE FROM menu_ingredient WHERE menu_id=$1 AND ingredient_id=$2', [menu_id, ingredient_id]);
     res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    handleDbError(res, err);
   }
 });
 
 // GET /api/menu_all - ดึงเมนูทุกแถว (ไม่ group) สำหรับ admin
 app.get('/api/menu_all', requireAdmin, async (req, res) => {
+  void req;
   try {
     const result = await pool.query('SELECT * FROM menu ORDER BY menu_id');
     res.json(result.rows);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    handleDbError(res, err);
   }
 });
 

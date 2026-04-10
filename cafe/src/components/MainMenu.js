@@ -50,6 +50,7 @@ function MainMenu() {
   const [adminAuthError, setAdminAuthError] = useState(null);
   const [showAdminLogin, setShowAdminLogin] = useState(false);
   const [adminKeyInput, setAdminKeyInput] = useState('');
+  const [isAdminPasswordVisible, setIsAdminPasswordVisible] = useState(false);
   const [lowStockCount, setLowStockCount] = useState(0);
   const [menuAvailability, setMenuAvailability] = useState({});
   const [ingredientStockList, setIngredientStockList] = useState([]);
@@ -244,6 +245,7 @@ function MainMenu() {
     }
 
     setAdminAuthError(null);
+    setIsAdminPasswordVisible(false);
     setShowAdminLogin(true);
   };
 
@@ -270,6 +272,7 @@ function MainMenu() {
       setIsAdminAuthenticated(true);
       setAdminAuthError(null);
       setAdminKeyInput('');
+      setIsAdminPasswordVisible(false);
       setShowAdminLogin(false);
       setShowAdmin(true);
     } catch (err) {
@@ -413,20 +416,43 @@ function MainMenu() {
         />
       )}
       {showAdminLogin && (
-        <div className="cart-popup-overlay" onClick={() => { setShowAdminLogin(false); setAdminAuthError(null); }}>
+        <div className="cart-popup-overlay" onClick={() => { setShowAdminLogin(false); setAdminAuthError(null); setIsAdminPasswordVisible(false); }}>
           <form className="cart-popup" onSubmit={handleAdminLogin} onClick={e => e.stopPropagation()}>
             <h3>เข้าสู่ระบบแอดมิน</h3>
-            <input
-              type="password"
-              value={adminKeyInput}
-              onChange={(e) => setAdminKeyInput(e.target.value)}
-              placeholder="กรอกรหัส Admin"
-              style={{ width: '100%', padding: 10, marginBottom: 12, fontSize: 16 }}
-            />
-            {adminAuthError && <div style={{ color: 'red', marginBottom: 8 }}>{adminAuthError}</div>}
-            <div style={{ display: 'flex', gap: 8 }}>
+            <div className="admin-login-field">
+              <input
+                type={isAdminPasswordVisible ? 'text' : 'password'}
+                value={adminKeyInput}
+                onChange={(e) => setAdminKeyInput(e.target.value)}
+                placeholder="กรอกรหัส Admin"
+                className="admin-login-input"
+              />
+              <button
+                type="button"
+                className="admin-login-toggle"
+                onClick={() => setIsAdminPasswordVisible((prev) => !prev)}
+                aria-label={isAdminPasswordVisible ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}
+                title={isAdminPasswordVisible ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}
+              >
+                {isAdminPasswordVisible ? (
+                  <svg viewBox="0 0 24 24" aria-hidden="true" className="admin-login-eye-icon">
+                    <path d="M3 4l18 16" />
+                    <path d="M10.6 10.7A3 3 0 0012 15a3 3 0 002.2-.96" />
+                    <path d="M9.5 5.6A10.4 10.4 0 0112 5c6 0 9.7 7 9.7 7a16 16 0 01-4.1 4.7" />
+                    <path d="M6.2 8.3A16 16 0 002.3 12s3.7 7 9.7 7a10.4 10.4 0 004.1-.8" />
+                  </svg>
+                ) : (
+                  <svg viewBox="0 0 24 24" aria-hidden="true" className="admin-login-eye-icon">
+                    <path d="M2.3 12s3.7-7 9.7-7 9.7 7 9.7 7-3.7 7-9.7 7-9.7-7-9.7-7z" />
+                    <circle cx="12" cy="12" r="3" />
+                  </svg>
+                )}
+              </button>
+            </div>
+            {adminAuthError && <div className="admin-login-error">{adminAuthError}</div>}
+            <div className="admin-login-actions">
               <button type="submit" className="cart-close-button">เข้าสู่ระบบ</button>
-              <button type="button" className="cart-close-button" onClick={() => { setShowAdminLogin(false); setAdminAuthError(null); }}>ยกเลิก</button>
+              <button type="button" className="cart-close-button" onClick={() => { setShowAdminLogin(false); setAdminAuthError(null); setIsAdminPasswordVisible(false); }}>ยกเลิก</button>
             </div>
           </form>
         </div>

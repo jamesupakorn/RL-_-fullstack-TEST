@@ -355,6 +355,71 @@
   box-shadow: var(--shadow);
 }
 
+.admin-login-field {
+  position: relative;
+  margin-bottom: 12px;
+}
+
+.admin-login-error {
+  color: var(--warn);
+  margin-bottom: 8px;
+  font-size: 0.95rem;
+}
+
+.admin-login-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.admin-login-input {
+  width: 100%;
+  padding: 10px 82px 10px 12px;
+  font-size: 16px;
+  box-sizing: border-box;
+  border: 1px solid #b7a189;
+  border-radius: 10px;
+  color: var(--ink);
+  outline: none;
+}
+
+.admin-login-input:focus {
+  border-color: var(--brand-2);
+  box-shadow: 0 0 0 3px rgba(139, 94, 60, 0.16);
+}
+
+.admin-login-toggle {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+  border: 1px solid #d9c3ad;
+  background: #fbf3ea;
+  color: var(--brand-1);
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  border-radius: 8px;
+}
+
+.admin-login-toggle:hover {
+  background: #f2e3d4;
+  border-color: #c9ad94;
+}
+
+.admin-login-eye-icon {
+  width: 18px;
+  height: 18px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .cart-popup--cart {
   max-width: min(94vw, 640px);
   min-width: min(94vw, 360px);

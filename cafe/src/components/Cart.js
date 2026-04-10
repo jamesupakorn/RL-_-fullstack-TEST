@@ -14,7 +14,7 @@ import React from 'react';
  * @param {Function} onRemove - ฟังก์ชันสำหรับลบสินค้าออกจากตะกร้า
  * @param {Function} onUpdateQty - ฟังก์ชันสำหรับแก้ไขจำนวนสินค้า
  */
-function Cart({ items, onRemove, onUpdateQty, onConfirmOrder, onClose, cancelDisabled, cartTotal, cartTotalDuration }) {
+function Cart({ items, onRemove, onUpdateQty, onConfirmOrder, onClose, cartTotal, cartTotalDuration }) {
   // ถ้าไม่มีสินค้าในตะกร้า
   if (!items || items.length === 0) {
     return <div className="cart-empty">Cart is empty</div>; // ตะกร้าว่าง
