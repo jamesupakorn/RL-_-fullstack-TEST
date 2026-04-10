@@ -1,0 +1,9 @@
+{
+  "git": {
+    "deploymentEnabled": {
+      "prd": true,
+      "dev": false,
+      "feature/dev2.0": false
+    }
+  }
+}
