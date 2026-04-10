@@ -1,1 +1,0 @@
-INSERT INTO "public"."menu_type" ("type_id", "type_name") VALUES ('T01', 'Coffee'), ('T02', 'Tea'), ('T03', 'Soda'), ('T04', 'Cocoa');

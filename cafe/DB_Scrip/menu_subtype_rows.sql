@@ -1,1 +1,0 @@
-INSERT INTO "public"."menu_subtype" ("subtype_id", "subtype_name", "extra_duration") VALUES ('S01', 'Hot', '0'), ('S02', 'Iced', '2'), ('S03', 'Frappe', '10');
