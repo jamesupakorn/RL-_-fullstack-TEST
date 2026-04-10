@@ -1,4 +1,6 @@
-// main.js - ฟังก์ชันกลางและเชื่อมต่อฐานข้อมูล
+// main.js — สร้างและ export PostgreSQL connection pool
+// รองรับทั้ง local dev และ Vercel serverless (จำกัด max connection เป็น 1)
+// Reuse pool ข้าม invocation ด้วย globalThis เพื่อลด cold reconnect ใน lambda
 import pkg from 'pg';
 import dotenv from 'dotenv';
 dotenv.config();

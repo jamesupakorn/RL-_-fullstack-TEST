@@ -1,9 +1,10 @@
 /*
-  แอปนี้เป็นตัวอย่างระบบเมนูร้านกาแฟ (Cafe Menu App)
-  - ดึงข้อมูลเมนูจาก backend API โดยใช้ฟังก์ชัน getMenus()
-  - แสดงผลเมนูแต่ละรายการเป็นปุ่ม
-  - มีการจัดการสถานะโหลดและ error
-  - สามารถขยายเพิ่มการเรียก API อื่น ๆ ได้ง่าย
+  MainMenu.js — component หลักของแอป (root of the app)
+  ประกอบด้วย:
+    - แสดงรายการเมนู + การเลือก subtype (hot/iced/frappe)
+    - จัดการตะกร้า (cart), countdown, และ add-on ingredient
+    - เชื่อมต่อ admin panel ผ่าน login form + AdminPanel component
+    - poll stock badge ทุก 60 วินาที เพื่อแสดงจำนวนรายการใกล้หมด
 */
 import React, { useCallback, useEffect, useState } from 'react';
 import { useApiCache, deductStockByMenu } from './api';
@@ -18,6 +19,7 @@ import '../styles/Main.css';
 
 const ADMIN_TOKEN_KEY = 'adminKeyHash';
 const LOW_STOCK_THRESHOLD = 10;
+/** hash rawKey ด้วย SHA-256 -> hex string (ใช้ก่อนส่ง admin key ไป API) */
 const sha256Hex = async (value) => {
   const data = new TextEncoder().encode(value);
   const digest = await window.crypto.subtle.digest('SHA-256', data);
@@ -58,18 +60,25 @@ function MainMenu() {
   // subtype ทั้งหมด
   const [allSubtypes, setAllSubtypes] = useState([]);
 
+/** key สำหรับแผน menuAvailability: รวม menu_name + subtypeId เป็น key เดียว */
   const availabilityKey = useCallback((menuNameEn, subtypeId) => `${menuNameEn}__${subtypeId}`, []);
 
+  /** เช็คว่า subtype นั้น ๆ ส่งได้ (วัตถุดิบพอ ลูกค้าเลือกได้) */
   const isSubtypeAvailable = useCallback((menuNameEn, subtypeId) => {
     const status = menuAvailability[availabilityKey(menuNameEn, subtypeId)];
     return status !== false;
   }, [menuAvailability, availabilityKey]);
 
+  /** เช็คว่าเมนูส่งได้อย่างน้อยหนึ่ง subtype (ดูว่าทุก subtype หัโดยหินหรือเปล่า) */
   const isMenuAvailable = useCallback((menu) => {
     const subtypes = Array.isArray(menu.menu_subtype) ? menu.menu_subtype : [menu.menu_subtype];
     return subtypes.some((st) => isSubtypeAvailable(menu.menu_name_en, st));
   }, [isSubtypeAvailable]);
 
+  /**
+   * รีเฟรชแผน menuAvailability ศึกษาวัตถุดิบใหม่จาก API
+   * เรียกอัตโนมัติหลัง confirm order เพื่อ update badge และสีปุ่มเมนู
+   */
   const refreshMenuAvailability = useCallback(async (menusSource = menus, forceRefresh = false) => {
     if (!menusSource || menusSource.length === 0) {
       setMenuAvailability({});
@@ -96,6 +105,10 @@ function MainMenu() {
     setMenuAvailability(Object.fromEntries(entries));
   }, [menus, getMenuIngredientsByNameSubtype, availabilityKey]);
 
+  /**
+   * โหลดจำนวน ingredient ที่ใกล้หมด เพื่อแสดง badge เตือนบนปุ่ม admin
+   * poll ทุก 60s เพื่อลุ้น badge อัตโนมัติโดยไม่ต้องรีเฟรชหน้า
+   */
   const loadLowStockCount = useCallback(async () => {
     try {
       const response = await fetch(URL + 'api/ingredient');
@@ -109,6 +122,10 @@ function MainMenu() {
     }
   }, []);
 
+  /**
+   * invalidate cache ทุกรายการที่เกี่ยวกับ stock แล้ว re-fetch
+   * เรียกหลัง admin ทำ deduct / update ingredient เสร็จ
+   */
   const refreshStockDrivenUI = useCallback(() => {
     invalidateCache(['ingredients', 'menuIngredients', 'menuIngredientsByNameSubtype']);
     loadLowStockCount();
@@ -136,7 +153,7 @@ function MainMenu() {
     return () => clearInterval(timer);
   }, [loadLowStockCount]);
 
-  // เมื่อคลิกเมนูหลัก
+  /** เมื่อคลิกเมนูหลัก: เซ็ต state เพื่อแสดงปุ่ม subtype (hot/iced/frappe) */
   const handleMenuClick = (menu) => {
     if (!isMenuAvailable(menu)) return;
     setSelectedMenuName(menu.menu_name_en);
@@ -175,6 +192,7 @@ function MainMenu() {
       }
     };
 
+  /** reset ทุก state ที่เกี่ยวกับการเลือกเมนู เช่น กด Back หรือ confirm order สำเร็จ */
   const resetMenuSelection = () => {
     setSelectedMenuName(null);
     setSelectedSubtypes(null);
@@ -186,7 +204,7 @@ function MainMenu() {
     setIngredientLoading(false);
   };
 
-  // เพิ่มสินค้าลงตะกร้า
+  /** เพิ่มสินค้าลงตะกร้า โดยรวม add-on ที่เลือกไว้ ตรวจ availability ก่อนเสมอ */
   const handleAddToCart = (selectedAddons = []) => {
     if (!isSubtypeAvailable(selectedMenuName, selectedSubtype)) return;
     if (!selectedMenuObj || !selectedMenuObj.menu_name_en || !selectedMenuObj.subtype_id) {

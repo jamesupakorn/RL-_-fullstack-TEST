@@ -1,6 +1,15 @@
+// menu_ingredient.js — query ตารางกลาง menu_ingredient + JOIN ingredient
+// ใช้ใน 2 endpoint หลัก:
+//   GET /api/menu_ingredient          (by menu_id)
+//   GET /api/menu_ingredient_by_name_subtype (by name + subtype, ใช้หน้า storefront)
 import pool from '../main.js';
 
-// ดึงวัตถุดิบของเมนู (รองรับ ingredient_type)
+/**
+ * ดึงรายการวัตถุดิบ (ingredient) ที่ใช้ในเมนูนั้น พร้อม duration และ price
+ * @param {string}      menu_id         - รหัสเมนู เช่น M001HOT
+ * @param {string|null} ingredient_type - กรองเฉพาะ type เช่น T01 (optional)
+ * @returns {{ ingredients: Array, duration: number|null, price: number|null }}
+ */
 export async function getMenuIngredients(menu_id, ingredient_type) {
   let query = `
     SELECT i.ingredient_id, i.ingredient_name_th, i.ingredient_name_en, i.unit_th, i.unit_en, i.stock_qty, mi.amount, i.duration
@@ -20,7 +29,14 @@ export async function getMenuIngredients(menu_id, ingredient_type) {
   return { ingredients: result.rows, duration, price };
 }
 
-// ดึงวัตถุดิบของเมนูด้วย menu_name และ subtype_id
+/**
+ * ดึงวัตถุดิบโดยระบุ ชื่อเมนู + subtype แทน menu_id โดยตรง
+ * ใช้โดย storefront เพราะ frontend รู้แค่ชื่อและ subtype ที่เลือก
+ * @param {string}      menu_name      - เช่น 'Americano'
+ * @param {string}      subtype_id     - เช่น 'HOT', 'ICED'
+ * @param {string|null} ingredient_type - กรอง type (optional)
+ * @returns {{ ingredients: Array, duration: number|null, price: number|null }}
+ */
 export async function getMenuIngredientsByNameSubtype(menu_name, subtype_id, ingredient_type) {
   // หา menu_id จาก menu_name และ subtype_id
   const menuRes = await pool.query(

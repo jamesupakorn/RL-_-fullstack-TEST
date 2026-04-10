@@ -14,11 +14,14 @@ import { handleDbError, notFound } from './db/helpers.js';
 
 const app = express();
 
+// เปิด CORS และ parse JSON body สำหรับทุก endpoint
 app.use(cors());
 app.use(express.json());
 
+// แยกเส้นทาง ingredient ไปจัดการใน router เฉพาะไฟล์
 app.use('/api/ingredient', ingredientRouter);
 
+// ตรวจสอบ admin credential ก่อนเข้าหน้า backend จัดการข้อมูล
 app.post('/api/admin/login', (req, res) => {
   const { adminKey, adminKeyHash } = req.body || {};
   const credential = adminKeyHash || adminKey;
@@ -28,7 +31,7 @@ app.post('/api/admin/login', (req, res) => {
   return res.json({ success: true });
 });
 
-// GET /api/menu_ingredient_by_name_subtype - ดึงวัตถุดิบของเมนูด้วย menu_name และ subtype_id
+// GET /api/menu_ingredient_by_name_subtype - ดึงสูตรเมนูจากชื่อเมนู + subtype (เช่น hot/iced)
 app.get('/api/menu_ingredient_by_name_subtype', async (req, res) => {
   const { menu_name, subtype_id, ingredient_type } = req.query;
   if (!menu_name || !subtype_id) return res.status(400).json({ error: 'Missing menu_name or subtype_id' });
@@ -40,7 +43,7 @@ app.get('/api/menu_ingredient_by_name_subtype', async (req, res) => {
   }
 });
 
-// GET /api/menu - ดึงข้อมูลเมนูทั้งหมด หรือ filter ตาม query
+// GET /api/menu - endpoint หน้า storefront (รองรับ filter ผ่าน query string)
 app.get('/api/menu', async (req, res) => {
   try {
     const menus = await getMenus(req.query);
@@ -50,7 +53,7 @@ app.get('/api/menu', async (req, res) => {
   }
 });
 
-// GET /api/menu_ingredient - ดึงวัตถุดิบของเมนู (รองรับ ingredient_type)
+// GET /api/menu_ingredient - ใช้ตอนลูกค้าเลือกเมนู เพื่ออ่านวัตถุดิบ/ราคา/เวลา
 app.get('/api/menu_ingredient', async (req, res) => {
   try {
     const { menu_id, ingredient_type } = req.query;
@@ -73,7 +76,7 @@ app.get('/api/menu_subtype', async (req, res) => {
   }
 });
 
-// GET /api/menu_type - ดึงข้อมูลประเภทเมนูหลัก
+// GET /api/menu_type - ใช้ในหลังบ้านเท่านั้น จึงต้องผ่าน requireAdmin
 app.get('/api/menu_type', requireAdmin, async (req, res) => {
   void req;
   try {
@@ -85,6 +88,7 @@ app.get('/api/menu_type', requireAdmin, async (req, res) => {
 });
 
 // ===== MENU CRUD =====
+// กลุ่มนี้เป็นงานจัดการข้อมูลเมนูในหลังบ้าน (create/update/delete)
 
 // POST /api/menu - เพิ่มเมนูใหม่
 app.post('/api/menu', requireAdmin, async (req, res) => {
@@ -119,7 +123,7 @@ app.put('/api/menu/:id', requireAdmin, async (req, res) => {
   }
 });
 
-// DELETE /api/menu/:id - ลบเมนู
+// DELETE /api/menu/:id - ลบความสัมพันธ์ menu_ingredient ก่อน แล้วค่อยลบเมนูหลัก
 app.delete('/api/menu/:id', requireAdmin, async (req, res) => {
   const { id } = req.params;
   try {
@@ -133,6 +137,7 @@ app.delete('/api/menu/:id', requireAdmin, async (req, res) => {
 });
 
 // ===== MENU_INGREDIENT CRUD =====
+// กลุ่มนี้จัดการ "สูตรวัตถุดิบต่อเมนู" (ตารางกลาง menu_ingredient)
 
 // GET /api/menu_ingredient_list/:menu_id - ดึง ingredient list ของเมนูสำหรับ admin
 app.get('/api/menu_ingredient_list/:menu_id', requireAdmin, async (req, res) => {

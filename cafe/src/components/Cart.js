@@ -1,18 +1,15 @@
-// Cart.js - React component สำหรับตะกร้าสินค้า
-// อธิบายโค้ดเป็นภาษาไทยในแต่ละส่วน
+// Cart.js - แสดงรายการในตะกร้าสินค้า + ควบคุมจำนวน + ยืนยัน order
 import React from 'react';
-// import { deductStockByMenu } from './api';
 
 /**
- * Cart component สำหรับแสดงรายการสินค้าในตะกร้า
- * @param {Array} items - array ของสินค้าในตะกร้า
- * @param {Function} onRemove - ฟังก์ชันสำหรับลบสินค้าออกจากตะกร้า
- */
-/**
- * Cart component สำหรับแสดงรายการสินค้าในตะกร้า
- * @param {Array} items - array ของสินค้าในตะกร้า
- * @param {Function} onRemove - ฟังก์ชันสำหรับลบสินค้าออกจากตะกร้า
- * @param {Function} onUpdateQty - ฟังก์ชันสำหรับแก้ไขจำนวนสินค้า
+ * Cart — แสดงรายการสินค้าในตะกร้า ปรับจำนวน และยืนยัน order
+ * @param {Array}    items              - รายการสินค้าในตะกร้า [{name, qty, price, addons, straw, lid}]
+ * @param {Function} onRemove           - ลบรายการ (รับ index)
+ * @param {Function} onUpdateQty        - แก้จำนวน (รับ index, qty, straw, lid)
+ * @param {Function} onConfirmOrder     - ยืนยันออเดอร์ → parent จัดการยิง API หักสต็อก
+ * @param {Function} onClose            - ปิดหน้าต่างตะกร้า
+ * @param {number}   cartTotal          - ราคารวมคำนวณจาก orderUtils
+ * @param {number}   cartTotalDuration  - เวลารวมในการเตรียมเมนูทั้งหมด
  */
 function Cart({ items, onRemove, onUpdateQty, onConfirmOrder, onClose, cartTotal, cartTotalDuration }) {
   // ถ้าไม่มีสินค้าในตะกร้า

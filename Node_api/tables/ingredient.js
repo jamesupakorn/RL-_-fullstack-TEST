@@ -6,6 +6,7 @@ import { handleDbError, notFound } from '../db/helpers.js';
 
 const router = express.Router();
 
+// SQL กลางสำหรับ update ingredient ใช้ซ้ำทั้ง update รายตัวและ bulk update
 const INGREDIENT_UPDATE_SQL = `UPDATE ingredient
   SET ingredient_name_th = $1,
       ingredient_name_en = $2,
@@ -20,6 +21,7 @@ const INGREDIENT_UPDATE_SQL = `UPDATE ingredient
 
 const DEDUCT_STOCK_SQL = 'UPDATE ingredient SET stock_qty = stock_qty - $1 WHERE ingredient_id = $2';
 
+// map object ingredient -> parameter array ตามลำดับ placeholder ใน INGREDIENT_UPDATE_SQL
 const buildIngredientUpdateParams = ({
   ingredient_id,
   ingredient_name_th,
@@ -125,7 +127,7 @@ router.delete('/:id', requireAdmin, async (req, res) => {
   }
 });
 
-// POST /deduct-stock-by-menu - ตัด stock ingredient ตามเมนูใน order
+// POST /deduct-stock-by-menu - endpoint ใช้หลังยืนยันออเดอร์ เพื่อหัก stock ตามสูตรเมนู
 router.post('/deduct-stock-by-menu', async (req, res) => {
   const orders = req.body; // [{ menu_id, qty }]
   try {
@@ -144,6 +146,7 @@ router.post('/deduct-stock-by-menu', async (req, res) => {
         continue;
       }
 
+      // lookup สูตรวัตถุดิบของเมนู แล้วคูณตามจำนวนที่สั่ง
       const result = await pool.query(
         'SELECT ingredient_id, amount FROM menu_ingredient WHERE menu_id = $1',
         [menu_id]
