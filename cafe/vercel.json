@@ -1,11 +1,6 @@
 {
   "buildCommand": "CI=true npm run build",
   "outputDirectory": "build",
-  "env": {
-    "REACT_APP_API_MODE": "@react_app_api_mode",
-    "REACT_APP_API_URL_LOCAL": "@react_app_api_url_local",
-    "REACT_APP_API_URL_PROD": "@react_app_api_url_prod"
-  },
   "git": {
     "deploymentEnabled": {
       "prd": true,
