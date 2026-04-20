@@ -34,6 +34,7 @@ function MainMenu() {
   const [error, setError] = useState(null);
 
   // state สำหรับเมนูหลักที่เลือก
+  const [selectedMenuType, setSelectedMenuType] = useState(null); // filter ประเภทเมนูก่อน
   const [selectedMenuName, setSelectedMenuName] = useState(null);
   const [selectedSubtypes, setSelectedSubtypes] = useState(null);
   const [selectedSubtype, setSelectedSubtype] = useState(null);
@@ -333,20 +334,52 @@ function MainMenu() {
 
       <div className="menu-layout">
       <div className="menu-left-panel">
-      <div className="section-heading">เลือกเมนูหลัก</div>
-      <div className="menu-grid">
-      {menus.map((menu) => (
-        <button
-          key={menu.menu_id}
-          className={`menu-chip ${selectedMenuName === menu.menu_name_en ? 'is-active' : ''} ${isMenuAvailable(menu) ? '' : 'is-disabled'}`}
-          onClick={() => handleMenuClick(menu)}
-          disabled={!isMenuAvailable(menu)}
-          title={!isMenuAvailable(menu) ? 'วัตถุดิบของเมนูนี้หมด/ไม่พอ' : ''}
-        >
-          {menu.menu_name_th || menu.menu_name_en}
-        </button>
-      ))}
+      {/* ส่วนที่ 1: เลือกประเภทเมนู */}
+      <div className="section-heading">เลือกประเภท</div>
+      <div className="menu-type-selector">
+        {['T01', 'T02', 'T03', 'T04'].map((typeId) => {
+          const typeLabel = { T01: '☕ กาแฟ', T02: '🍵 ชา', T03: '🥤 โซดา', T04: '🍫 โกโก้' }[typeId];
+          const hasItems = menus.some(m => m.menu_type === typeId && isMenuAvailable(m));
+          return (
+            <button
+              key={typeId}
+              className={`menu-type-chip ${selectedMenuType === typeId ? 'is-active' : ''} ${!hasItems ? 'is-empty' : ''}`}
+              onClick={() => {
+                setSelectedMenuType(typeId);
+                setSelectedMenuName(null); // รีเซ็ต menu ที่เลือก
+                setSelectedSubtype(null);
+              }}
+              disabled={!hasItems}
+              title={!hasItems ? 'ไม่มีสินค้าในประเภทนี้' : ''}
+            >
+              {typeLabel}
+            </button>
+          );
+        })}
       </div>
+
+      {/* ส่วนที่ 2: เลือกเมนูจากประเภทที่เลือก */}
+      {selectedMenuType && (
+        <>
+          <div className="section-heading" style={{ marginTop: '16px' }}>เลือกเมนูหลัก</div>
+          <div className="menu-grid">
+            {menus
+              .filter(menu => menu.menu_type === selectedMenuType)
+              .map((menu) => (
+                <button
+                  key={menu.menu_id}
+                  className={`menu-chip ${selectedMenuName === menu.menu_name_en ? 'is-active' : ''} ${isMenuAvailable(menu) ? '' : 'is-disabled'}`}
+                  onClick={() => handleMenuClick(menu)}
+                  disabled={!isMenuAvailable(menu)}
+                  title={!isMenuAvailable(menu) ? 'วัตถุดิบของเมนูนี้หมด/ไม่พอ' : ''}
+                >
+                  {menu.menu_name_th || menu.menu_name_en}
+                </button>
+              ))}
+          </div>
+        </>
+      )}
+
       {/* ปุ่ม subtype เฉพาะที่เมนูนั้นมี */}
       {selectedMenuName && selectedSubtypes && (
         <div className="subtype-wrap">
