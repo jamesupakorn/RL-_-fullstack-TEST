@@ -6,11 +6,6 @@
       "dest": "/api/index.js"
     }
   ],
-  "env": {
-    "NODE_ENV": "production",
-    "DATABASE_URL": "@database_url",
-    "ADMIN_KEY_HASH": "@admin_key_hash"
-  },
   "git": {
     "deploymentEnabled": {
       "prd": true,
