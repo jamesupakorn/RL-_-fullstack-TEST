@@ -112,7 +112,11 @@ function MainMenu() {
    */
   const loadLowStockCount = useCallback(async () => {
     try {
-      const response = await fetch(URL + 'api/ingredient');
+      const { getClientToken } = await import('./api');
+      const token = await getClientToken();
+      const response = await fetch(URL + 'api/ingredient', {
+        headers: { 'x-client-token': token },
+      });
       if (!response.ok) return;
       const ingredientsData = await response.json();
       setIngredientStockList(ingredientsData || []);

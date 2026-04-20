@@ -10,6 +10,7 @@ import { getMenuIngredients, getMenuIngredientsByNameSubtype } from './tables/me
 import { getMenuSubtypes } from './tables/menu_subtype.js';
 import ingredientRouter from './tables/ingredient.js';
 import { isAdminKeyValid, requireAdmin } from './auth/adminAuth.js';
+import { issueClientToken, requireClientToken } from './auth/clientToken.js';
 import { handleDbError, notFound } from './db/helpers.js';
 
 const app = express();
@@ -20,6 +21,13 @@ app.use(express.json());
 
 // แยกเส้นทาง ingredient ไปจัดการใน router เฉพาะไฟล์
 app.use('/api/ingredient', ingredientRouter);
+
+// POST /api/token — ออก short-lived client token สำหรับ frontend (public endpoint)
+// ทุก request อื่นต้องแนบ token นี้ใน header x-client-token
+app.post('/api/token', (req, res) => {
+  void req;
+  res.json({ token: issueClientToken() });
+});
 
 // ตรวจสอบ admin credential ก่อนเข้าหน้า backend จัดการข้อมูล
 app.post('/api/admin/login', (req, res) => {
@@ -32,7 +40,7 @@ app.post('/api/admin/login', (req, res) => {
 });
 
 // GET /api/menu_ingredient_by_name_subtype - ดึงสูตรเมนูจากชื่อเมนู + subtype (เช่น hot/iced)
-app.get('/api/menu_ingredient_by_name_subtype', async (req, res) => {
+app.get('/api/menu_ingredient_by_name_subtype', requireClientToken, async (req, res) => {
   const { menu_name, subtype_id, ingredient_type } = req.query;
   if (!menu_name || !subtype_id) return res.status(400).json({ error: 'Missing menu_name or subtype_id' });
   try {
@@ -44,7 +52,7 @@ app.get('/api/menu_ingredient_by_name_subtype', async (req, res) => {
 });
 
 // GET /api/menu - endpoint หน้า storefront (รองรับ filter ผ่าน query string)
-app.get('/api/menu', async (req, res) => {
+app.get('/api/menu', requireClientToken, async (req, res) => {
   try {
     const menus = await getMenus(req.query);
     res.json(menus);
@@ -54,7 +62,7 @@ app.get('/api/menu', async (req, res) => {
 });
 
 // GET /api/menu_ingredient - ใช้ตอนลูกค้าเลือกเมนู เพื่ออ่านวัตถุดิบ/ราคา/เวลา
-app.get('/api/menu_ingredient', async (req, res) => {
+app.get('/api/menu_ingredient', requireClientToken, async (req, res) => {
   try {
     const { menu_id, ingredient_type } = req.query;
     if (!menu_id) return res.status(400).json({ error: 'Missing menu_id' });
@@ -66,7 +74,7 @@ app.get('/api/menu_ingredient', async (req, res) => {
 });
 
 // GET /api/menu_subtype - ดึงข้อมูลประเภทเมนูย่อย (Hot/Iced/Frappe)
-app.get('/api/menu_subtype', async (req, res) => {
+app.get('/api/menu_subtype', requireClientToken, async (req, res) => {
   void req;
   try {
     const subtypes = await getMenuSubtypes();

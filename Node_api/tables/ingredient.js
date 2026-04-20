@@ -2,6 +2,7 @@
 import express from 'express';
 import pool from '../main.js';
 import { requireAdmin } from '../auth/adminAuth.js';
+import { requireClientToken } from '../auth/clientToken.js';
 import { handleDbError, notFound } from '../db/helpers.js';
 
 const router = express.Router();
@@ -45,7 +46,7 @@ const buildIngredientUpdateParams = ({
 ];
 
 // GET / - ดึงรายการ ingredient ทั้งหมดสำหรับหน้าเช็ค stock
-router.get('/', async (req, res) => {
+router.get('/', requireClientToken, async (req, res) => {
   void req;
   try {
     const result = await pool.query(
@@ -128,7 +129,7 @@ router.delete('/:id', requireAdmin, async (req, res) => {
 });
 
 // POST /deduct-stock-by-menu - endpoint ใช้หลังยืนยันออเดอร์ เพื่อหัก stock ตามสูตรเมนู
-router.post('/deduct-stock-by-menu', async (req, res) => {
+router.post('/deduct-stock-by-menu', requireClientToken, async (req, res) => {
   const orders = req.body; // [{ menu_id, qty }]
   try {
     for (const order of orders) {

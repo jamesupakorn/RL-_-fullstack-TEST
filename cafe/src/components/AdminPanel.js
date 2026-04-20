@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { URL } from './config';
+import { getClientToken } from './api';
 import { getIngredientTypeLabelTh, getStockStatus, getStockStatusLabelTh, STOCK_STATUS } from '../utils/stockUtils';
 import '../styles/AdminPanel.css';
 
@@ -11,6 +12,10 @@ const apiFetch = async (path, opts = {}) => {
   const headers = { ...(opts.headers || {}) };
   const adminKey = getAdminKey();
   if (adminKey) headers['x-admin-key'] = adminKey;
+
+  // แนบ client token ทุก request (ไม่ว่าจะเป็น admin route หรือ public route)
+  const token = await getClientToken();
+  if (token) headers['x-client-token'] = token;
 
   const response = await fetch(API + path, { ...opts, headers });
   const raw = await response.text();
