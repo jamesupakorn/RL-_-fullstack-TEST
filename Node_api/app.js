@@ -19,45 +19,43 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// GET / — หน้า API catalog (เฉพาะ admin เท่านั้น ป้องกัน information disclosure)
-app.get('/', requireAdmin, (req, res) => {
+// GET / — หน้า API catalog แสดงรายการ endpoint ทั้งหมด (HTML)
+// ซ่อน auth endpoints และ header names — แสดงแค่ระดับสิทธิ์เพื่อความปลอดภัย
+app.get('/', (req, res) => {
   void req;
+  // หมายเหตุ: ซ่อน /api/token และ /api/admin/login จงใจ
+  // เพื่อไม่เปิดเผย attack surface แก่ผู้ไม่ประสงค์ดี
   const endpoints = [
-    { group: 'Auth', color: '#6c47ff', items: [
-      { method: 'POST', path: '/api/token', auth: 'public', desc: 'ออก client token (อายุ 4 ชม.) สำหรับแนบทุก request' },
-      { method: 'POST', path: '/api/admin/login', auth: 'public', desc: 'ตรวจสอบ admin key — ส่ง adminKeyHash ใน body' },
-    ]},
     { group: 'Menu', color: '#0ea5e9', items: [
-      { method: 'GET',  path: '/api/menu', auth: 'token', desc: 'ดึงเมนูทั้งหมด (grouped by prefix) รองรับ filter ผ่าน query string' },
-      { method: 'GET',  path: '/api/menu_subtype', auth: 'token', desc: 'ดึงประเภทย่อยของเมนู (Hot / Iced / Frappe)' },
-      { method: 'GET',  path: '/api/menu_type', auth: 'admin', desc: 'ดึงประเภทหลักของเมนู (กาแฟ / ชา / โกโก้ …)' },
-      { method: 'GET',  path: '/api/menu_all', auth: 'admin', desc: 'ดึงเมนูทุกแถวแบบไม่ group (สำหรับ admin จัดการ)' },
-      { method: 'POST', path: '/api/menu', auth: 'admin', desc: 'เพิ่มเมนูใหม่' },
-      { method: 'PUT',  path: '/api/menu/:id', auth: 'admin', desc: 'แก้ไขข้อมูลเมนู' },
-      { method: 'DELETE', path: '/api/menu/:id', auth: 'admin', desc: 'ลบเมนู (ลบ menu_ingredient ที่เกี่ยวข้องด้วย)' },
+      { method: 'GET',    path: '/api/menu',           auth: 'auth',  desc: 'ดึงเมนูทั้งหมด (grouped by prefix) รองรับ filter ผ่าน query string' },
+      { method: 'GET',    path: '/api/menu_subtype',   auth: 'auth',  desc: 'ดึงประเภทย่อยของเมนู (Hot / Iced / Frappe)' },
+      { method: 'GET',    path: '/api/menu_type',      auth: 'admin', desc: 'ดึงประเภทหลักของเมนู (กาแฟ / ชา / โกโก้ …)' },
+      { method: 'GET',    path: '/api/menu_all',       auth: 'admin', desc: 'ดึงเมนูทุกแถวแบบไม่ group (สำหรับ admin จัดการ)' },
+      { method: 'POST',   path: '/api/menu',           auth: 'admin', desc: 'เพิ่มเมนูใหม่' },
+      { method: 'PUT',    path: '/api/menu/:id',       auth: 'admin', desc: 'แก้ไขข้อมูลเมนู' },
+      { method: 'DELETE', path: '/api/menu/:id',       auth: 'admin', desc: 'ลบเมนู (ลบ menu_ingredient ที่เกี่ยวข้องด้วย)' },
     ]},
     { group: 'Menu Ingredient', color: '#10b981', items: [
-      { method: 'GET',  path: '/api/menu_ingredient', auth: 'token', desc: 'ดึงวัตถุดิบของเมนูตาม ?menu_id=&ingredient_type=' },
-      { method: 'GET',  path: '/api/menu_ingredient_by_name_subtype', auth: 'token', desc: 'ดึงวัตถุดิบตามชื่อเมนู + subtype (?menu_name=&subtype_id=)' },
-      { method: 'GET',  path: '/api/menu_ingredient_list/:menu_id', auth: 'admin', desc: 'ดึงรายการวัตถุดิบของเมนู (admin view)' },
-      { method: 'POST', path: '/api/menu_ingredient', auth: 'admin', desc: 'เพิ่ม/อัปเดตวัตถุดิบในเมนู (upsert)' },
-      { method: 'DELETE', path: '/api/menu_ingredient/:menu_id/:ingredient_id', auth: 'admin', desc: 'ลบวัตถุดิบออกจากเมนู' },
+      { method: 'GET',    path: '/api/menu_ingredient',                        auth: 'auth',  desc: 'ดึงวัตถุดิบของเมนูตาม ?menu_id=&ingredient_type=' },
+      { method: 'GET',    path: '/api/menu_ingredient_by_name_subtype',        auth: 'auth',  desc: 'ดึงวัตถุดิบตามชื่อเมนู + subtype (?menu_name=&subtype_id=)' },
+      { method: 'GET',    path: '/api/menu_ingredient_list/:menu_id',          auth: 'admin', desc: 'ดึงรายการวัตถุดิบของเมนู (admin view)' },
+      { method: 'POST',   path: '/api/menu_ingredient',                        auth: 'admin', desc: 'เพิ่ม/อัปเดตวัตถุดิบในเมนู (upsert)' },
+      { method: 'DELETE', path: '/api/menu_ingredient/:menu_id/:ingredient_id',auth: 'admin', desc: 'ลบวัตถุดิบออกจากเมนู' },
     ]},
     { group: 'Ingredient / Stock', color: '#f59e0b', items: [
-      { method: 'GET',    path: '/api/ingredient', auth: 'token', desc: 'ดึงรายการวัตถุดิบทั้งหมด พร้อม stock_qty' },
-      { method: 'POST',   path: '/api/ingredient', auth: 'admin', desc: 'เพิ่มวัตถุดิบใหม่' },
-      { method: 'PUT',    path: '/api/ingredient/:id', auth: 'admin', desc: 'แก้ไขวัตถุดิบรายตัว' },
-      { method: 'PUT',    path: '/api/ingredient', auth: 'admin', desc: 'Bulk update วัตถุดิบหลายรายการพร้อมกัน' },
-      { method: 'DELETE', path: '/api/ingredient/:id', auth: 'admin', desc: 'ลบวัตถุดิบ' },
-      { method: 'POST',   path: '/api/ingredient/deduct-stock-by-menu', auth: 'token', desc: 'หัก stock ตามออเดอร์ที่ยืนยัน ([{ menu_id, qty }])' },
+      { method: 'GET',    path: '/api/ingredient',                    auth: 'auth',  desc: 'ดึงรายการวัตถุดิบทั้งหมด พร้อม stock_qty' },
+      { method: 'POST',   path: '/api/ingredient',                    auth: 'admin', desc: 'เพิ่มวัตถุดิบใหม่' },
+      { method: 'PUT',    path: '/api/ingredient/:id',                auth: 'admin', desc: 'แก้ไขวัตถุดิบรายตัว' },
+      { method: 'PUT',    path: '/api/ingredient',                    auth: 'admin', desc: 'Bulk update วัตถุดิบหลายรายการพร้อมกัน' },
+      { method: 'DELETE', path: '/api/ingredient/:id',                auth: 'admin', desc: 'ลบวัตถุดิบ' },
+      { method: 'POST',   path: '/api/ingredient/deduct-stock-by-menu', auth: 'auth', desc: 'หัก stock ตามออเดอร์ที่ยืนยัน' },
     ]},
   ];
 
   const methodColor = { GET: '#10b981', POST: '#6c47ff', PUT: '#f59e0b', DELETE: '#ef4444' };
   const authBadge = {
-    public: '<span style="background:#1e293b;color:#94a3b8;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:600">public</span>',
-    token:  '<span style="background:#0c4a6e;color:#38bdf8;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:600">x-client-token</span>',
-    admin:  '<span style="background:#4c1d95;color:#c4b5fd;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:600">x-admin-key</span>',
+    auth:  '<span style="background:#0c4a6e;color:#38bdf8;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:600">🔑 Authenticated</span>',
+    admin: '<span style="background:#4c1d95;color:#c4b5fd;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:600">👑 Admin only</span>',
   };
 
   const rows = endpoints.map(({ group, color, items }) => {
@@ -98,14 +96,14 @@ app.get('/', requireAdmin, (req, res) => {
 </head>
 <body>
   <h1>☕ ToothBin API</h1>
-  <p class="sub">Cafe Menu & Stock Management API &nbsp;·&nbsp; v1.0 &nbsp;·&nbsp; ${new Date().toLocaleDateString('th-TH', { year:'numeric', month:'long', day:'numeric' })}</p>
+  <p class="sub">Cafe Menu &amp; Stock Management API &nbsp;·&nbsp; v1.0 &nbsp;·&nbsp; ${new Date().toLocaleDateString('th-TH', { year:'numeric', month:'long', day:'numeric' })}</p>
   <div class="card">
     <table>
       <thead>
         <tr style="border-bottom:1px solid #334155">
           <th style="padding:12px 14px;text-align:left;font-size:12px;color:#64748b;font-weight:600">METHOD</th>
           <th style="padding:12px 14px;text-align:left;font-size:12px;color:#64748b;font-weight:600">PATH</th>
-          <th style="padding:12px 14px;text-align:left;font-size:12px;color:#64748b;font-weight:600">AUTH</th>
+          <th style="padding:12px 14px;text-align:left;font-size:12px;color:#64748b;font-weight:600">ACCESS</th>
           <th style="padding:12px 14px;text-align:left;font-size:12px;color:#64748b;font-weight:600">DESCRIPTION</th>
         </tr>
       </thead>
@@ -113,9 +111,8 @@ app.get('/', requireAdmin, (req, res) => {
     </table>
   </div>
   <div class="legend">
-    <span class="leg"><span class="dot" style="background:#94a3b8"></span>public — ไม่ต้อง header พิเศษ</span>
-    <span class="leg"><span class="dot" style="background:#38bdf8"></span>x-client-token — ต้องขอจาก POST /api/token ก่อน</span>
-    <span class="leg"><span class="dot" style="background:#c4b5fd"></span>x-admin-key — ต้องเป็น admin เท่านั้น</span>
+    <span class="leg"><span class="dot" style="background:#38bdf8"></span>Authenticated — ต้องผ่านระบบ authentication ของ application</span>
+    <span class="leg"><span class="dot" style="background:#c4b5fd"></span>Admin only — สิทธิ์ผู้ดูแลระบบเท่านั้น</span>
   </div>
 </body>
 </html>`;
