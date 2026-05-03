@@ -4,6 +4,7 @@
 
 import express from 'express';
 import cors from 'cors';
+import crypto from 'crypto';
 import pool from './main.js';
 import { getMenus } from './tables/menu.js';
 import { getMenuIngredients, getMenuIngredientsByNameSubtype } from './tables/menu_ingredient.js';
@@ -14,10 +15,62 @@ import { issueClientToken, requireClientToken } from './auth/clientToken.js';
 import { handleDbError, notFound } from './db/helpers.js';
 
 const app = express();
+const KEEPALIVE_SECRET = process.env.KEEPALIVE_SECRET || '';
 
 // เปิด CORS และ parse JSON body สำหรับทุก endpoint
 app.use(cors());
 app.use(express.json());
+
+/** เทียบ secret แบบ timing-safe เพื่อลดโอกาส timing attack */
+const isKeepaliveSecretValid = (providedSecret) => {
+  if (!KEEPALIVE_SECRET || !providedSecret) return false;
+  const expected = Buffer.from(String(KEEPALIVE_SECRET), 'utf8');
+  const provided = Buffer.from(String(providedSecret), 'utf8');
+  if (expected.length !== provided.length) return false;
+  return crypto.timingSafeEqual(expected, provided);
+};
+
+// GET /api/internal/keepalive — endpoint สำหรับงาน scheduler ปลุก Supabase free-tier
+// ต้องแนบ header x-keepalive-secret และ endpoint นี้ไม่ควรเปิดใน public docs
+app.get('/api/internal/keepalive', async (req, res) => {
+  const startedAt = Date.now();
+  const incomingSecret = req.headers['x-keepalive-secret'];
+
+  if (!KEEPALIVE_SECRET) {
+    return res.status(503).json({ ok: false, error: 'Keepalive is not configured' });
+  }
+
+  if (!isKeepaliveSecretValid(incomingSecret)) {
+    return res.status(401).json({ ok: false, error: 'Unauthorized keepalive request' });
+  }
+
+  try {
+    // บังคับแตะ DB จริง พร้อม timeout กันค้าง
+    const result = await Promise.race([
+      pool.query('SELECT 1 AS ok'),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('DB ping timeout')), 10000)),
+    ]);
+
+    const durationMs = Date.now() - startedAt;
+    console.log(`[keepalive] success ${durationMs}ms`);
+
+    return res.json({
+      ok: true,
+      db: result.rows?.[0]?.ok === 1 ? 'up' : 'unknown',
+      durationMs,
+      at: new Date().toISOString(),
+    });
+  } catch (err) {
+    const durationMs = Date.now() - startedAt;
+    console.error('[keepalive] failed', { durationMs, message: err?.message });
+    return res.status(500).json({
+      ok: false,
+      error: 'Database keepalive failed',
+      durationMs,
+      at: new Date().toISOString(),
+    });
+  }
+});
 
 // GET / — หน้า API catalog แสดงรายการ endpoint ทั้งหมด (HTML)
 // ซ่อน auth endpoints และ header names — แสดงแค่ระดับสิทธิ์เพื่อความปลอดภัย
