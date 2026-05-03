@@ -18,7 +18,23 @@ const app = express();
 const KEEPALIVE_SECRET = process.env.KEEPALIVE_SECRET || '';
 
 // เปิด CORS และ parse JSON body สำหรับทุก endpoint
-app.use(cors());
+const allowedOrigins = [
+  'https://toothbin.vercel.app',
+  'http://localhost:3000',
+];
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'x-admin-key', 'x-client-token'],
+  credentials: true,
+}));
+app.options('*', cors());
 app.use(express.json());
 
 /** เทียบ secret แบบ timing-safe เพื่อลดโอกาส timing attack */
