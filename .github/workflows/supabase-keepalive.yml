@@ -2,45 +2,62 @@ name: Supabase Keepalive
 
 on:
   schedule:
-    # Every 4 days at 02:17 UTC
-    - cron: '17 2 */4 * *'
+    # every 24 hours (UTC)
+    - cron: '17 2 * * *'
   workflow_dispatch:
 
 jobs:
-  ping-db:
+  keepalive:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - name: Ping protected DB keepalive endpoint (with retries)
+      - name: Validate required secrets
         env:
-          API_BASE_URL: ${{ secrets.API_BASE_URL }}
+          KEEPALIVE_URL: ${{ secrets.KEEPALIVE_URL }}
+          KEEPALIVE_SECRET: ${{ secrets.KEEPALIVE_SECRET }}
+        run: |
+          if [ -z "$KEEPALIVE_URL" ]; then
+            echo "Missing secret: KEEPALIVE_URL"
+            exit 1
+          fi
+          if [ -z "$KEEPALIVE_SECRET" ]; then
+            echo "Missing secret: KEEPALIVE_SECRET"
+            exit 1
+          fi
+
+      - name: Ping keepalive endpoint (timeout + retry + logs)
+        env:
+          KEEPALIVE_URL: ${{ secrets.KEEPALIVE_URL }}
           KEEPALIVE_SECRET: ${{ secrets.KEEPALIVE_SECRET }}
         run: |
           set -euo pipefail
 
-          if [[ -z "${API_BASE_URL}" || -z "${KEEPALIVE_SECRET}" ]]; then
-            echo "Missing required secrets: API_BASE_URL or KEEPALIVE_SECRET"
+          echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Keepalive started"
+          echo "Target: ${KEEPALIVE_URL}"
+
+          HTTP_CODE=$(curl \
+            --silent \
+            --show-error \
+            --location \
+            --connect-timeout 10 \
+            --max-time 25 \
+            --retry 4 \
+            --retry-delay 5 \
+            --retry-connrefused \
+            --retry-all-errors \
+            --header "x-keepalive-secret: ${KEEPALIVE_SECRET}" \
+            --output response.json \
+            --write-out "%{http_code}" \
+            "${KEEPALIVE_URL}")
+
+          echo "HTTP status: ${HTTP_CODE}"
+          echo "Response preview:"
+          head -c 600 response.json || true
+          echo ""
+
+          if [ "${HTTP_CODE}" -lt 200 ] || [ "${HTTP_CODE}" -ge 300 ]; then
+            echo "Keepalive failed with status ${HTTP_CODE}"
             exit 1
           fi
 
-          URL="${API_BASE_URL%/}/internal/keepalive-db"
-          echo "Pinging ${URL}"
-
-          for i in 1 2 3 4 5; do
-            code=$(curl -sS -o response.json -w "%{http_code}" \
-              -H "x-keepalive-secret: ${KEEPALIVE_SECRET}" \
-              "${URL}" || true)
-
-            echo "Attempt ${i}: HTTP ${code}"
-            cat response.json || true
-            echo
-
-            if [[ "${code}" == "200" ]]; then
-              echo "Keepalive success"
-              exit 0
-            fi
-
-            sleep 30
-          done
-
-          echo "Keepalive failed after retries"
-          exit 1
+          echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Keepalive succeeded"

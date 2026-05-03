@@ -4,6 +4,7 @@
 
 import express from 'express';
 import cors from 'cors';
+import crypto from 'crypto';
 import pool from './main.js';
 import { getMenus } from './tables/menu.js';
 import { getMenuIngredients, getMenuIngredientsByNameSubtype } from './tables/menu_ingredient.js';
@@ -20,19 +21,54 @@ const KEEPALIVE_SECRET = process.env.KEEPALIVE_SECRET || '';
 app.use(cors());
 app.use(express.json());
 
-// GET /internal/keepalive-db - endpoint สำหรับ cron ยิงปลุก DB (ซ่อนด้วย secret header)
-app.get('/internal/keepalive-db', async (req, res) => {
-  const providedSecret = req.headers['x-keepalive-secret'];
-  if (!KEEPALIVE_SECRET || providedSecret !== KEEPALIVE_SECRET) {
-    return res.status(401).json({ error: 'Unauthorized' });
+/** เทียบ secret แบบ timing-safe เพื่อลดโอกาส timing attack */
+const isKeepaliveSecretValid = (providedSecret) => {
+  if (!KEEPALIVE_SECRET || !providedSecret) return false;
+  const expected = Buffer.from(String(KEEPALIVE_SECRET), 'utf8');
+  const provided = Buffer.from(String(providedSecret), 'utf8');
+  if (expected.length !== provided.length) return false;
+  return crypto.timingSafeEqual(expected, provided);
+};
+
+// GET /api/internal/keepalive — endpoint สำหรับงาน scheduler ปลุก Supabase free-tier
+// ต้องแนบ header x-keepalive-secret และ endpoint นี้ไม่ควรเปิดใน public docs
+app.get('/api/internal/keepalive', async (req, res) => {
+  const startedAt = Date.now();
+  const incomingSecret = req.headers['x-keepalive-secret'];
+
+  if (!KEEPALIVE_SECRET) {
+    return res.status(503).json({ ok: false, error: 'Keepalive is not configured' });
+  }
+
+  if (!isKeepaliveSecretValid(incomingSecret)) {
+    return res.status(401).json({ ok: false, error: 'Unauthorized keepalive request' });
   }
 
   try {
-    // แตะ DB จริงเพื่อให้ Supabase นับเป็น activity
-    await pool.query('SELECT 1 AS ok');
-    return res.json({ ok: true, source: 'db', at: new Date().toISOString() });
+    // บังคับแตะ DB จริง พร้อม timeout กันค้าง
+    const result = await Promise.race([
+      pool.query('SELECT 1 AS ok'),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('DB ping timeout')), 10000)),
+    ]);
+
+    const durationMs = Date.now() - startedAt;
+    console.log(`[keepalive] success ${durationMs}ms`);
+
+    return res.json({
+      ok: true,
+      db: result.rows?.[0]?.ok === 1 ? 'up' : 'unknown',
+      durationMs,
+      at: new Date().toISOString(),
+    });
   } catch (err) {
-    return handleDbError(res, err);
+    const durationMs = Date.now() - startedAt;
+    console.error('[keepalive] failed', { durationMs, message: err?.message });
+    return res.status(500).json({
+      ok: false,
+      error: 'Database keepalive failed',
+      durationMs,
+      at: new Date().toISOString(),
+    });
   }
 });
 
