@@ -1,0 +1,46 @@
+name: Supabase Keepalive
+
+on:
+  schedule:
+    # Every 4 days at 02:17 UTC
+    - cron: '17 2 */4 * *'
+  workflow_dispatch:
+
+jobs:
+  ping-db:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping protected DB keepalive endpoint (with retries)
+        env:
+          API_BASE_URL: ${{ secrets.API_BASE_URL }}
+          KEEPALIVE_SECRET: ${{ secrets.KEEPALIVE_SECRET }}
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${API_BASE_URL}" || -z "${KEEPALIVE_SECRET}" ]]; then
+            echo "Missing required secrets: API_BASE_URL or KEEPALIVE_SECRET"
+            exit 1
+          fi
+
+          URL="${API_BASE_URL%/}/internal/keepalive-db"
+          echo "Pinging ${URL}"
+
+          for i in 1 2 3 4 5; do
+            code=$(curl -sS -o response.json -w "%{http_code}" \
+              -H "x-keepalive-secret: ${KEEPALIVE_SECRET}" \
+              "${URL}" || true)
+
+            echo "Attempt ${i}: HTTP ${code}"
+            cat response.json || true
+            echo
+
+            if [[ "${code}" == "200" ]]; then
+              echo "Keepalive success"
+              exit 0
+            fi
+
+            sleep 30
+          done
+
+          echo "Keepalive failed after retries"
+          exit 1

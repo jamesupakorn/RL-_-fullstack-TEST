@@ -14,10 +14,27 @@ import { issueClientToken, requireClientToken } from './auth/clientToken.js';
 import { handleDbError, notFound } from './db/helpers.js';
 
 const app = express();
+const KEEPALIVE_SECRET = process.env.KEEPALIVE_SECRET || '';
 
 // เปิด CORS และ parse JSON body สำหรับทุก endpoint
 app.use(cors());
 app.use(express.json());
+
+// GET /internal/keepalive-db - endpoint สำหรับ cron ยิงปลุก DB (ซ่อนด้วย secret header)
+app.get('/internal/keepalive-db', async (req, res) => {
+  const providedSecret = req.headers['x-keepalive-secret'];
+  if (!KEEPALIVE_SECRET || providedSecret !== KEEPALIVE_SECRET) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  try {
+    // แตะ DB จริงเพื่อให้ Supabase นับเป็น activity
+    await pool.query('SELECT 1 AS ok');
+    return res.json({ ok: true, source: 'db', at: new Date().toISOString() });
+  } catch (err) {
+    return handleDbError(res, err);
+  }
+});
 
 // GET / — หน้า API catalog แสดงรายการ endpoint ทั้งหมด (HTML)
 // ซ่อน auth endpoints และ header names — แสดงแค่ระดับสิทธิ์เพื่อความปลอดภัย
