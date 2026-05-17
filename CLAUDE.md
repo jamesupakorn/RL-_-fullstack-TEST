@@ -95,6 +95,27 @@
 - **Behavior**: curl พร้อม retry 4 ครั้ง, timeout 25s, ถ้า HTTP status ไม่ใช่ 2xx จะ fail
 - เมื่อแก้ไข workflow นี้ ให้ตรวจ secrets ทั้งสองตัวยังมีอยู่ใน GitHub repo settings
 
+## Git Branch Sync Workflow
+
+**กฎ:** ถ้า `dev` และ `prd` ไม่เท่ากัน — ให้ merge `prd` เข้า `dev` ก่อน แล้วค่อย merge `dev` เข้า `prd`
+
+```bash
+# Step 1: sync prd → dev
+git checkout dev
+git merge origin/prd
+# ถ้า conflict → เลือก dev version (--ours) เสมอ เพราะ dev คือ source of truth
+git push origin dev
+
+# Step 2: sync dev → prd
+git checkout prd
+git merge origin/dev   # ควร fast-forward ถ้าทำ step 1 ถูกต้อง
+git push origin prd
+```
+
+**Branch Protection Settings** (ตั้งแล้วใน GitHub):
+- `required_linear_history`: false — อนุญาต merge commit
+- `allow_force_pushes`: true — อนุญาต force push หลัง rebase
+
 ## Definition of Done
 
 1. Requested change implemented.
