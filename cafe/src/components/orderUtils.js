@@ -95,3 +95,15 @@ export function buildOrderMenus(cartItems) {
   }
   return orderMenus;
 }
+
+/**
+ * แปลงวินาที -> ข้อความภาษาไทย (0 วินาที / X วินาที / X นาที / X นาที Y วินาที)
+ */
+export function formatDuration(seconds) {
+  const s = Number(seconds) || 0;
+  const mins = Math.floor(s / 60);
+  const secs = s % 60;
+  if (mins === 0) return `${secs} วินาที`;
+  if (secs === 0) return `${mins} นาที`;
+  return `${mins} นาที ${secs} วินาที`;
+}

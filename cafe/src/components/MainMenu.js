@@ -175,7 +175,6 @@ function MainMenu() {
     const handleSubtypeClick = async (subtype) => {
       const subtypeId = subtype.subtype_id || subtype;
         if (!isSubtypeAvailable(selectedMenuName, subtypeId)) return;
-      console.log('handleSubtypeClick called:', { selectedMenuName, subtypeId });
       setSelectedSubtype(subtypeId);
       setIngredientLoading(true);
       setIngredientError(null);
@@ -184,14 +183,11 @@ function MainMenu() {
       // เรียก API ใหม่ getMenuIngredientsByNameSubtype
       try {
         const data = await getMenuIngredientsByNameSubtype(selectedMenuName, subtypeId);
-        console.log('API response:', data); // log ทั้ง object
         setIngredients(data.ingredients || []);
         setMenuDuration(data.duration || null);
         setSelectedMenuObj({ menu_name_en: selectedMenuName, menu_name_th: data.menu_name_th, subtype_id: subtypeId, price: data.price });
-        console.log('ingredients:', data.ingredients, 'price:', data.price);
       } catch (err) {
         setIngredientError(err.message);
-        console.log('handleSubtypeClick error:', err);
       } finally {
         setIngredientLoading(false);
       }
@@ -213,7 +209,6 @@ function MainMenu() {
   const handleAddToCart = (selectedAddons = []) => {
     if (!isSubtypeAvailable(selectedMenuName, selectedSubtype)) return;
     if (!selectedMenuObj || !selectedMenuObj.menu_name_en || !selectedMenuObj.subtype_id) {
-      console.log('Add to cart failed: selectedMenuObj incomplete', selectedMenuObj);
       return;
     }
     // หา menuObj จาก menus โดยใช้ menu_name และ menu_subtype (menu_id จริงจาก db)
@@ -226,7 +221,6 @@ function MainMenu() {
       }
     });
     if (!menuObj) {
-      console.log('Menu object not found for', selectedMenuObj.menu_name_en, selectedMenuObj.subtype_id);
       return;
     }
     const extraDuration = selectedAddons.reduce((sum, addon) => sum + (Number(addon.duration) || 0) * (Number(addon.amount) || 1), 0);
@@ -235,7 +229,6 @@ function MainMenu() {
     const finalPrice = (Number(menuObj.price) || 0) + extraPrice;
     setCartItems(prev => addToCart(prev, menuObj, duration, finalPrice, selectedAddons));
     resetMenuSelection();
-    console.log('Add to cart:', menuObj.menu_id, selectedMenuObj.menu_name_th || selectedMenuObj.menu_name_en, 'price:', menuObj.price);
   };
 
   const handleRemoveFromCart = (idx) => {
@@ -316,10 +309,14 @@ function MainMenu() {
           <button className="cart-button" onClick={() => setShowCart(true)}>
             Cart ({cartCount})
           </button>
-          <button className="cart-button" onClick={handleAdminClick}>
+          <button
+            className="cart-button"
+            onClick={handleAdminClick}
+            title={lowStockCount > 0 ? `มีวัตถุดิบใกล้หมด ${lowStockCount} รายการ` : 'จัดการระบบ'}
+          >
             Admin
             {lowStockCount > 0 && (
-              <span className="admin-badge">
+              <span className="admin-badge" aria-label={`วัตถุดิบใกล้หมด ${lowStockCount} รายการ`}>
                 {lowStockCount}
               </span>
             )}
@@ -331,7 +328,7 @@ function MainMenu() {
       {loading && (
         <div className="spinner-container">
           <div className="spinner" />
-          <div>Loading data...</div>
+          <div>กำลังโหลด...</div>
         </div>
       )}
       {error && <div className="error-text">Error: {error}</div>}

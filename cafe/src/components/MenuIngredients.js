@@ -1,4 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { formatDuration } from './orderUtils';
+
+const fmtPrice = (n) => `฿${Number(n).toLocaleString('th-TH')}`;
 
 function MenuIngredients({ selectedMenu, ingredients, addonOptions = [], menuDuration, ingredientLoading, ingredientError, onAddToCart, canAddToCart }) {
   const [selectedAddons, setSelectedAddons] = useState([]);
@@ -24,14 +27,14 @@ function MenuIngredients({ selectedMenu, ingredients, addonOptions = [], menuDur
   if (!selectedMenu) return null;
   return (
     <div className="ingredients-panel">
-      <h2>Ingredients for {selectedMenu.menu_name_th || selectedMenu.menu_name_en}</h2>
+      <h2>ส่วนผสมของ {selectedMenu.menu_name_th || selectedMenu.menu_name_en}</h2>
       {ingredientLoading && (
         <div className="spinner-container">
           <div className="spinner" />
-          <div>Loading ingredients...</div>
+          <div>กำลังโหลดส่วนผสม...</div>
         </div>
       )}
-      {ingredientError && <div className="error-text">Error: {ingredientError}</div>}
+      {ingredientError && <div className="error-text">เกิดข้อผิดพลาด: {ingredientError}</div>}
       {!ingredientLoading && !ingredientError && (
         <>
           <ul className="ingredient-list">
@@ -40,7 +43,7 @@ function MenuIngredients({ selectedMenu, ingredients, addonOptions = [], menuDur
             ))}
           </ul>
           <div className="addon-block">
-            <strong>Add-on ตามวัตถุดิบที่มี:</strong>
+            <strong>เพิ่มเติม:</strong>
             {addonOptions.length === 0 ? (
               <div className="addon-empty">ไม่มี add-on ที่พร้อมใช้งาน</div>
             ) : (
@@ -50,9 +53,7 @@ function MenuIngredients({ selectedMenu, ingredients, addonOptions = [], menuDur
                   return (
                     <label key={addon.ingredient_id} className="addon-option">
                       <input type="checkbox" checked={checked} onChange={() => toggleAddon(addon)} />
-                      <span>
-                        {addon.name} (+{addon.price} ฿, +{addon.duration} วิ)
-                      </span>
+                      <span>{addon.name} (+{fmtPrice(addon.price)}, +{addon.duration} วิ)</span>
                     </label>
                   );
                 })}
@@ -60,20 +61,19 @@ function MenuIngredients({ selectedMenu, ingredients, addonOptions = [], menuDur
             )}
           </div>
           <div className="summary-block">
-            <strong>Preparation time:</strong> {finalDuration} seconds
+            <div><strong>เวลาเตรียม:</strong> {formatDuration(finalDuration)}</div>
             {selectedMenu.price !== undefined && (
               <div className="summary-price">
-                <strong>Price:</strong> {finalPrice} ฿ {addonPrice > 0 ? `(base ${basePrice} + add-on ${addonPrice})` : ''}
+                <strong>ราคา:</strong> {fmtPrice(finalPrice)}
+                {addonPrice > 0 && <span className="price-breakdown"> (เมนู {fmtPrice(basePrice)} + เพิ่มเติม {fmtPrice(addonPrice)})</span>}
               </div>
             )}
             {!canAddToCart && (
-              <div className="stock-warning">
-                วัตถุดิบไม่พอ เมนูนี้กดสั่งไม่ได้ชั่วคราว
-              </div>
+              <div className="stock-warning">วัตถุดิบไม่พอ เมนูนี้กดสั่งไม่ได้ชั่วคราว</div>
             )}
             <div className="add-cart-wrap">
               <button className="add-cart-btn" onClick={() => onAddToCart(selectedAddons)} disabled={!canAddToCart}>
-                Add to Cart
+                เพิ่มลงตะกร้า
               </button>
             </div>
           </div>

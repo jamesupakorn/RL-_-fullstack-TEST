@@ -665,6 +665,72 @@
   margin: 8px 0;
 }
 
+.cart-popup-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.cart-popup-header h2 {
+  margin: 0;
+  color: var(--brand-1);
+  font-size: clamp(1.55rem, 2vw, 2rem);
+}
+
+.cart-popup-close-btn {
+  background: none;
+  border: 1px solid #d8bca3;
+  border-radius: 8px;
+  color: var(--ink-soft);
+  width: 32px;
+  height: 32px;
+  font-size: 1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.cart-popup-close-btn:hover {
+  background: #f5ede4;
+  color: var(--brand-1);
+  border-color: #c9a98a;
+}
+
+.cart-empty-state {
+  text-align: center;
+  padding: 32px 16px;
+  color: var(--ink-soft);
+}
+
+.cart-empty-icon {
+  font-size: 2.6rem;
+  margin-bottom: 10px;
+}
+
+.cart-empty-text {
+  font-size: 1.05rem;
+}
+
+.cart-close-button--disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.price-breakdown {
+  font-weight: 400;
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+  margin-left: 4px;
+}
+
+/* ลบ h2 ที่ซ้ำซ้อนออก (ถูกแทนด้วย cart-popup-header แล้ว) */
+.cart-container > h2 {
+  display: none;
+}
+
 @media (max-width: 760px) {
   .hero {
     grid-template-columns: 1fr;

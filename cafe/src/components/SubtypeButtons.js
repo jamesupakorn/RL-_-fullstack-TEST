@@ -13,7 +13,7 @@ function SubtypeButtons({ subtypes, onSelect, selectedSubtype, isSubtypeDisabled
           key={st.subtype_id}
           className={`subtype-button ${isSelected ? 'is-selected' : ''} ${disabledByStock ? 'is-disabled' : ''}`}
           onClick={() => onSelect(st)}
-          disabled={isSelected || disabledByStock}
+          disabled={disabledByStock}
           title={disabledByStock ? 'วัตถุดิบไม่พอ/หมด' : ''}
         >
           {st.subtype_name_th || st.subtype_name_en}

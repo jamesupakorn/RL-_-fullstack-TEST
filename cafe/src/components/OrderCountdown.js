@@ -1,20 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { CountdownCircleTimer } from 'react-countdown-circle-timer';
 
-/**
- * OrderCountdown - popup แสดง countdown ทีละเมนู
- * @param {Array} items - array ของสินค้าใน order (แต่ละ item มี duration, name, qty)
- * @param {Function} onFinish - callback เมื่อ countdown จบ
- * @param {Function} onCancel - callback เมื่อกดปุ่มยกเลิก
- */
 function OrderCountdown({ items = [], onFinish, onCancel }) {
-  // สร้าง array ของแต่ละเมนูตาม qty
   const expandedItems = items.flatMap(item => Array(item.qty).fill(item));
   const [currentIdx, setCurrentIdx] = useState(0);
   const [seconds, setSeconds] = useState(expandedItems[0]?.duration || 0);
-  const [elapsed, setElapsed] = useState(0); // เวลาที่ผ่านไปจริง
-  const [key, setKey] = useState(0); // สำหรับรีเซ็ต timer
-  const [finished, setFinished] = useState(false); // ป้องกัน onFinish ซ้ำ
+  const [elapsed, setElapsed] = useState(0);
+  const [key, setKey] = useState(0);
+  const [finished, setFinished] = useState(false);
 
   useEffect(() => {
     if (expandedItems.length === 0) return;
@@ -22,7 +15,7 @@ function OrderCountdown({ items = [], onFinish, onCancel }) {
       if (currentIdx < expandedItems.length - 1) {
         setCurrentIdx(currentIdx + 1);
         setSeconds(expandedItems[currentIdx + 1].duration || 0);
-        setElapsed(0); // reset elapsed
+        setElapsed(0);
         setKey(prev => prev + 1);
       } else {
         if (!finished && onFinish) {
@@ -34,13 +27,20 @@ function OrderCountdown({ items = [], onFinish, onCancel }) {
   }, [seconds, currentIdx, expandedItems, onFinish, finished]);
 
   const currentItem = expandedItems[currentIdx];
-  // ปุ่ม Cancel ทำงานได้เฉพาะ 3 วินาทีแรกของเมนูแรกเท่านั้น
+  // ยกเลิกได้เฉพาะ 3 วินาทีแรกของเมนูแรก
   const cancelDisabled = currentIdx > 0 || elapsed > 3;
+  const cancelSecondsLeft = currentIdx === 0 ? Math.max(0, Math.ceil(3 - elapsed)) : 0;
+
+  const cancelLabel = cancelDisabled
+    ? 'ยกเลิกไม่ได้'
+    : cancelSecondsLeft > 0
+      ? `ยกเลิก (${cancelSecondsLeft}s)`
+      : 'ยกเลิก';
 
   return (
     <div className="cart-popup-overlay">
       <div className="cart-popup countdown-popup">
-        <h2 className="countdown-title">Preparing: {currentItem?.name || 'Order'}</h2>
+        <h2 className="countdown-title">กำลังเตรียม: {currentItem?.name || 'ออเดอร์'}</h2>
         <div className="countdown-timer-wrap">
           <CountdownCircleTimer
             key={key}
@@ -55,7 +55,7 @@ function OrderCountdown({ items = [], onFinish, onCancel }) {
               return { shouldRepeat: false };
             }}
             onUpdate={remainingTime => {
-              setElapsed(expandedItems[0]?.duration - remainingTime);
+              setElapsed((expandedItems[0]?.duration || 0) - remainingTime);
             }}
           >
             {({ remainingTime }) => (
@@ -67,10 +67,13 @@ function OrderCountdown({ items = [], onFinish, onCancel }) {
           {currentIdx + 1} / {expandedItems.length}
         </div>
         <button
-          className="cart-close-button"
+          className={`cart-close-button ${cancelDisabled ? 'cart-close-button--disabled' : ''}`}
           onClick={onCancel}
           disabled={cancelDisabled}
-        >Cancel</button>
+          title={cancelDisabled ? 'ยกเลิกออเดอร์ได้เฉพาะ 3 วินาทีแรกเท่านั้น' : 'ยกเลิกออเดอร์'}
+        >
+          {cancelLabel}
+        </button>
       </div>
     </div>
   );
