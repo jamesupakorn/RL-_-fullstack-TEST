@@ -26,7 +26,8 @@ const sign = (data, secret) =>
  */
 export function issueClientToken() {
   if (!APP_SECRET) return 'dev-mode-no-secret';
-  const payload = toBase64Url(JSON.stringify({ iat: Date.now(), exp: Date.now() + TOKEN_TTL_MS }));
+  const now = Date.now();
+  const payload = toBase64Url(JSON.stringify({ iat: now, exp: now + TOKEN_TTL_MS }));
   const sig = sign(payload, APP_SECRET);
   return `${payload}.${sig}`;
 }

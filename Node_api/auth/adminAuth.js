@@ -3,12 +3,12 @@
 // ไม่เก็บ plaintext key ใน source code — อ่านจาก ADMIN_KEY_HASH ใน .env
 import crypto from 'crypto';
 
-// hash ที่ถูกต้อง อ่านจาก env (แนะนำ) หรือ fallback เป็น default สำหรับ dev
 const ADMIN_KEY_HASH = process.env.ADMIN_KEY_HASH || '';
-// fallback plaintext สำหรับ legacy config (ไม่แนะนำใช้ใน production)
-const LEGACY_ADMIN_KEY = process.env.ADMIN_KEY || '';
 const HEX_64 = /^[a-f0-9]{64}$/i;
-const DEFAULT_ADMIN_KEY_HASH = '8cc418c4e4512014dbd2ea6a17feb5b0591c80ae95edb7ebef31ecacce00619e'; // System@min
+
+if (!ADMIN_KEY_HASH) {
+  console.error('[adminAuth] ADMIN_KEY_HASH not set — admin routes are disabled');
+}
 
 /** คำนวณ SHA-256 ของ string -> hex string */
 const sha256Hex = (value) => crypto.createHash('sha256').update(String(value), 'utf8').digest('hex');
@@ -33,27 +33,13 @@ const timingSafeHexEqual = (leftHex, rightHex) => {
  *   2. ส่ง plaintext key มา แล้ว hash ฝั่ง server ก่อนเปรียบเทียบ
  */
 export const isAdminKeyValid = (rawKey) => {
-  if (!rawKey) return false;
-  const activeHash = (ADMIN_KEY_HASH || DEFAULT_ADMIN_KEY_HASH).toLowerCase();
-
-  // Preferred mode: hash in env, no plaintext secret in code.
-  if (activeHash) {
-    const normalized = String(rawKey).trim().toLowerCase();
-
-    // Client can send hash directly so plaintext key is never persisted/sent.
-    if (HEX_64.test(normalized)) {
-      return timingSafeHexEqual(normalized, activeHash);
-    }
-
-    return timingSafeHexEqual(sha256Hex(rawKey), activeHash);
+  if (!rawKey || !ADMIN_KEY_HASH) return false;
+  const activeHash = ADMIN_KEY_HASH.toLowerCase();
+  const normalized = String(rawKey).trim().toLowerCase();
+  if (HEX_64.test(normalized)) {
+    return timingSafeHexEqual(normalized, activeHash);
   }
-
-  // Backward-compatible fallback.
-  if (LEGACY_ADMIN_KEY) {
-    return rawKey === LEGACY_ADMIN_KEY;
-  }
-
-  return false;
+  return timingSafeHexEqual(sha256Hex(rawKey), activeHash);
 };
 
 /**

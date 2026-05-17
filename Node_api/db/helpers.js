@@ -4,7 +4,8 @@
  * @param {Error} err
  */
 export function handleDbError(res, err) {
-  res.status(500).json({ error: err.message });
+  console.error('[db]', err);
+  res.status(500).json({ error: 'Internal server error' });
 }
 
 /**

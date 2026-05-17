@@ -46,8 +46,7 @@ const buildIngredientUpdateParams = ({
 ];
 
 // GET / - ดึงรายการ ingredient ทั้งหมดสำหรับหน้าเช็ค stock
-router.get('/', requireClientToken, async (req, res) => {
-  void req;
+router.get('/', requireClientToken, async (_req, res) => {
   try {
     const result = await pool.query(
       `SELECT ingredient_id, ingredient_name_th, ingredient_name_en, ingredient_type, stock_qty, unit_th, unit_en, duration, addon_price
@@ -128,55 +127,68 @@ router.delete('/:id', requireAdmin, async (req, res) => {
   }
 });
 
-// POST /deduct-stock-by-menu - endpoint ใช้หลังยืนยันออเดอร์ เพื่อหัก stock ตามสูตรเมนู
+// POST /deduct-stock-by-menu - endpoint ใช้หลังยืนยันออเดอร์ เพื่อหัก stock ตามสูตรเมนู (transaction)
 router.post('/deduct-stock-by-menu', requireClientToken, async (req, res) => {
-  const orders = req.body; // [{ menu_id, qty }]
+  const orders = req.body;
+  if (!Array.isArray(orders)) return res.status(400).json({ error: 'Body must be array' });
+
+  const client = await pool.connect();
   try {
+    await client.query('BEGIN');
     for (const order of orders) {
       // ถ้ามี ingredient_id ให้ตัด stock โดยตรง (เช่น หลอด/ฝา)
       if (order.ingredient_id) {
-        await pool.query(DEDUCT_STOCK_SQL, [order.qty, order.ingredient_id]);
+        await client.query(DEDUCT_STOCK_SQL, [order.qty, order.ingredient_id]);
         continue;
       }
 
-      // ถ้าเป็น menu_id ให้ตัด stock จาก menu_ingredient
       const { menu_id, qty } = order;
       if (menu_id && menu_id.startsWith('IGD')) {
         // กรณีส่ง ingredient_id แบบเดิม (เช่น frontend ส่ง menu_id = IGD2001)
-        await pool.query(DEDUCT_STOCK_SQL, [qty, menu_id]);
+        await client.query(DEDUCT_STOCK_SQL, [qty, menu_id]);
         continue;
       }
 
       // lookup สูตรวัตถุดิบของเมนู แล้วคูณตามจำนวนที่สั่ง
-      const result = await pool.query(
+      const result = await client.query(
         'SELECT ingredient_id, amount FROM menu_ingredient WHERE menu_id = $1',
         [menu_id]
       );
       for (const ing of result.rows) {
-        await pool.query(DEDUCT_STOCK_SQL, [ing.amount * qty, ing.ingredient_id]);
+        await client.query(DEDUCT_STOCK_SQL, [ing.amount * qty, ing.ingredient_id]);
       }
     }
+    await client.query('COMMIT');
     res.json({ success: true });
   } catch (err) {
+    await client.query('ROLLBACK');
     handleDbError(res, err);
+  } finally {
+    client.release();
   }
 });
 
-// PUT / - bulk update ingredient
+// PUT / - bulk update ingredient (transaction)
 router.put('/', requireAdmin, async (req, res) => {
   const ingredients = req.body;
   if (!Array.isArray(ingredients)) return res.status(400).json({ error: 'Body must be array' });
 
+  const client = await pool.connect();
   try {
+    await client.query('BEGIN');
     const results = [];
     for (const ingredient of ingredients) {
       if (!ingredient.ingredient_id) continue;
-      const result = await pool.query(INGREDIENT_UPDATE_SQL, buildIngredientUpdateParams(ingredient));
+      const result = await client.query(INGREDIENT_UPDATE_SQL, buildIngredientUpdateParams(ingredient));
       if (result.rowCount > 0) results.push(result.rows[0]);
     }
+    await client.query('COMMIT');
     res.json(results);
   } catch (err) {
+    await client.query('ROLLBACK');
     handleDbError(res, err);
+  } finally {
+    client.release();
   }
 });
 

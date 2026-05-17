@@ -8,6 +8,7 @@ import { URL } from './config';
 // เก็บ token ใน memory (ไม่ persist ข้าม session เพื่อความปลอดภัย)
 let _clientToken = null;
 let _tokenExpiry = 0;
+let _pendingTokenFetch = null; // deduplication: ป้องกัน fetch ซ้ำเมื่อ concurrent call
 const TOKEN_MARGIN_MS = 5 * 60 * 1000; // รีเฟรชก่อนหมดอายุ 5 นาที
 
 /** ดึง token จาก backend ถ้ายังไม่มีหรือหมดอายุแล้ว (exported สำหรับ component อื่น) */
@@ -15,18 +16,22 @@ export async function getClientToken() {
   if (_clientToken && Date.now() < _tokenExpiry - TOKEN_MARGIN_MS) {
     return _clientToken;
   }
-  const res = await fetch(URL + 'api/token', { method: 'POST' });
-  if (!res.ok) throw new Error('Failed to obtain client token');
-  const { token } = await res.json();
-  // parse expiry จาก payload (base64url part แรก)
-  try {
-    const payload = JSON.parse(atob(token.split('.')[0].replace(/-/g, '+').replace(/_/g, '/')));
-    _tokenExpiry = payload.exp || Date.now() + 4 * 60 * 60 * 1000;
-  } catch {
-    _tokenExpiry = Date.now() + 4 * 60 * 60 * 1000;
+  if (!_pendingTokenFetch) {
+    _pendingTokenFetch = (async () => {
+      const res = await fetch(URL + 'api/token', { method: 'POST' });
+      if (!res.ok) throw new Error('Failed to obtain client token');
+      const { token } = await res.json();
+      try {
+        const payload = JSON.parse(atob(token.split('.')[0].replace(/-/g, '+').replace(/_/g, '/')));
+        _tokenExpiry = payload.exp || Date.now() + 4 * 60 * 60 * 1000;
+      } catch {
+        _tokenExpiry = Date.now() + 4 * 60 * 60 * 1000;
+      }
+      _clientToken = token;
+      return _clientToken;
+    })().finally(() => { _pendingTokenFetch = null; });
   }
-  _clientToken = token;
-  return _clientToken;
+  return _pendingTokenFetch;
 }
 
 /** wrapper ของ fetch ที่แนบ x-client-token ทุก request */

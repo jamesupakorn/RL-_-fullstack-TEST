@@ -22,7 +22,7 @@ const allowedOrigins = [
   'https://toothbin.vercel.app',
   'http://localhost:3000',
 ];
-app.use(cors({
+const corsOptions = {
   origin: (origin, callback) => {
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
@@ -33,8 +33,9 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'x-admin-key', 'x-client-token'],
   credentials: true,
-}));
-app.options('*', cors());
+};
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 app.use(express.json());
 
 /** เทียบ secret แบบ timing-safe เพื่อลดโอกาส timing attack */
@@ -90,8 +91,7 @@ app.get('/api/internal/keepalive', async (req, res) => {
 
 // GET / — หน้า API catalog แสดงรายการ endpoint ทั้งหมด (HTML)
 // ซ่อน auth endpoints และ header names — แสดงแค่ระดับสิทธิ์เพื่อความปลอดภัย
-app.get('/', (req, res) => {
-  void req;
+app.get('/', (_req, res) => {
   // หมายเหตุ: ซ่อน /api/token และ /api/admin/login จงใจ
   // เพื่อไม่เปิดเผย attack surface แก่ผู้ไม่ประสงค์ดี
   const endpoints = [
@@ -195,8 +195,7 @@ app.use('/api/ingredient', ingredientRouter);
 
 // POST /api/token — ออก short-lived client token สำหรับ frontend (public endpoint)
 // ทุก request อื่นต้องแนบ token นี้ใน header x-client-token
-app.post('/api/token', (req, res) => {
-  void req;
+app.post('/api/token', (_req, res) => {
   res.json({ token: issueClientToken() });
 });
 
@@ -245,8 +244,7 @@ app.get('/api/menu_ingredient', requireClientToken, async (req, res) => {
 });
 
 // GET /api/menu_subtype - ดึงข้อมูลประเภทเมนูย่อย (Hot/Iced/Frappe)
-app.get('/api/menu_subtype', requireClientToken, async (req, res) => {
-  void req;
+app.get('/api/menu_subtype', requireClientToken, async (_req, res) => {
   try {
     const subtypes = await getMenuSubtypes();
     res.json(subtypes);
@@ -256,8 +254,7 @@ app.get('/api/menu_subtype', requireClientToken, async (req, res) => {
 });
 
 // GET /api/menu_type - ใช้ในหลังบ้านเท่านั้น จึงต้องผ่าน requireAdmin
-app.get('/api/menu_type', requireAdmin, async (req, res) => {
-  void req;
+app.get('/api/menu_type', requireAdmin, async (_req, res) => {
   try {
     const result = await pool.query('SELECT * FROM menu_type ORDER BY type_id');
     res.json(result.rows);
@@ -302,16 +299,25 @@ app.put('/api/menu/:id', requireAdmin, async (req, res) => {
   }
 });
 
-// DELETE /api/menu/:id - ลบความสัมพันธ์ menu_ingredient ก่อน แล้วค่อยลบเมนูหลัก
+// DELETE /api/menu/:id - ลบความสัมพันธ์ menu_ingredient ก่อน แล้วค่อยลบเมนูหลัก (transaction)
 app.delete('/api/menu/:id', requireAdmin, async (req, res) => {
   const { id } = req.params;
+  const client = await pool.connect();
   try {
-    await pool.query('DELETE FROM menu_ingredient WHERE menu_id = $1', [id]);
-    const result = await pool.query('DELETE FROM menu WHERE menu_id = $1 RETURNING *', [id]);
-    if (result.rowCount === 0) return notFound(res, 'Menu');
+    await client.query('BEGIN');
+    await client.query('DELETE FROM menu_ingredient WHERE menu_id = $1', [id]);
+    const result = await client.query('DELETE FROM menu WHERE menu_id = $1 RETURNING *', [id]);
+    if (result.rowCount === 0) {
+      await client.query('ROLLBACK');
+      return notFound(res, 'Menu');
+    }
+    await client.query('COMMIT');
     res.json({ success: true, deleted: result.rows[0] });
   } catch (err) {
+    await client.query('ROLLBACK');
     handleDbError(res, err);
+  } finally {
+    client.release();
   }
 });
 
@@ -364,8 +370,7 @@ app.delete('/api/menu_ingredient/:menu_id/:ingredient_id', requireAdmin, async (
 });
 
 // GET /api/menu_all - ดึงเมนูทุกแถว (ไม่ group) สำหรับ admin
-app.get('/api/menu_all', requireAdmin, async (req, res) => {
-  void req;
+app.get('/api/menu_all', requireAdmin, async (_req, res) => {
   try {
     const result = await pool.query('SELECT * FROM menu ORDER BY menu_id');
     res.json(result.rows);
